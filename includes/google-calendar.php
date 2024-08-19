@@ -9,7 +9,7 @@ function sync_with_google_calendar($event_details) {
     try {
         // Retrieve Google Calendar API credentials from options
         $options = get_option('booking_settings');
-        error_log('Booking Settings Option: ' . print_r($options, true));
+        //error_log('Booking Settings Option: ' . print_r($options, true));
         if (!isset($options['calendar_api_key'])) {
             throw new Exception('Google Calendar API credentials not set.');
         }
@@ -35,6 +35,16 @@ function sync_with_google_calendar($event_details) {
         $end = new DateTime($event_details['end'], new DateTimeZone('America/Los_Angeles'));
         $start->setTimezone(new DateTimeZone('UTC'));
         $end->setTimezone(new DateTimeZone('UTC'));
+        
+        // Check attendees if it's empty
+        $attendees_array = [];
+        if (!empty($options['calendar_event_attendees'])) {
+            $attendees = explode(',', $options['calendar_event_attendees']);
+            $attendee_emails = array_map('trim', $attendees); // Clean up whitespace
+            $attendees_array = array_map(function($email) {
+                return ['email' => $email];
+            }, $attendee_emails);
+        }
 
         // Create the event object with proper data formatting
         $event = new Google_Service_Calendar_Event(array(
@@ -56,24 +66,25 @@ function sync_with_google_calendar($event_details) {
                     array('method' => 'popup', 'minutes' => 10),
                 ),
             ),
+            'attendees' => !empty($attendees_array) ? $attendees_array : null,
         ));
 
         // Debug: Log the event object to check its structure
-        // error_log('Event Object: ' . print_r($event, true));
+        //error_log('Event Object: ' . print_r($event, true));
 
         // Insert the event into the calendar
         $calendarId = '1a48b015cf5a51aecb06e738d4ca10e49ba4583bbd4ecbb4a83011695bcf226f@group.calendar.google.com'; // Replace with your calendar ID
         $createdEvent = $service->events->insert($calendarId, $event);
 
         // Log the created event details for debugging
-        error_log('Created Event: ' . print_r($createdEvent, true));
+        //error_log('Created Event: ' . print_r($createdEvent, true));
 
         return $createdEvent->getId(); // Return the event ID if needed
     } catch (Exception $e) {
         // Detailed error logging
-        // error_log('Google Calendar sync failed: ' . $e->getMessage());
-        // error_log('Event Details: ' . print_r($event_details, true));
-        // error_log('Request Payload: ' . (isset($event) ? json_encode($event) : 'Event object not created.'));
+        //error_log('Google Calendar sync failed: ' . $e->getMessage());
+        //error_log('Event Details: ' . print_r($event_details, true));
+        //error_log('Request Payload: ' . (isset($event) ? json_encode($event) : 'Event object not created.'));
         return false;
     }
 }
