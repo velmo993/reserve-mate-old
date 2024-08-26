@@ -30,11 +30,54 @@ function create_booking_post_type() {
         )
     );
 }
-add_action('init', 'create_booking_post_type');
 
-// Enqueue styles and scripts
-// function enqueue_booking_scripts() {
-//     wp_enqueue_style('booking-style', plugins_url('/css/booking-style.css', __FILE__));
-//     wp_enqueue_script('booking-script', plugins_url('/js/booking-script.js', __FILE__), array('jquery'), null, true);
-// }
-// add_action('wp_enqueue_scripts', 'enqueue_booking_scripts');
+// Create table for rooms
+function create_rooms_table() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'rooms';
+    $charset_collate = $wpdb->get_charset_collate();
+    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+
+    $sql = "CREATE TABLE $table_name (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        name varchar(255) NOT NULL,
+        description text NOT NULL,
+        max_guests mediumint(9) NOT NULL,
+        is_available boolean NOT NULL DEFAULT 1,
+        PRIMARY KEY  (id)
+    ) $charset_collate;";
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+    }
+}
+
+function create_bookings_table() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'bookings';
+    $charset_collate = $wpdb->get_charset_collate();
+    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+
+    $sql = "CREATE TABLE $table_name (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        room_id mediumint(9) NOT NULL,
+        name varchar(255) NOT NULL,
+        email varchar(255) NOT NULL,
+        phone varchar(20) NOT NULL,
+        adults int NOT NULL,
+        children int NOT NULL,
+        start_date date NOT NULL,
+        end_date date NOT NULL,
+        PRIMARY KEY  (id),
+        FOREIGN KEY (room_id) REFERENCES {$wpdb->prefix}rooms(id) ON DELETE CASCADE
+    ) $charset_collate;";
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+    }
+}
+
+register_activation_hook(__FILE__, 'create_rooms_table');
+register_activation_hook(__FILE__, 'create_bookings_table');
+
+add_action('init', 'create_booking_post_type');
