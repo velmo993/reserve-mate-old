@@ -55,6 +55,14 @@ function register_booking_settings() {
     );
     
     add_settings_field(
+        'calendar_id',
+        'Google Calendar ID',
+        'display_calendar_id_field',
+        'booking-settings',
+        'general_settings'
+    );
+    
+    add_settings_field(
         'calendar_timezones',
         'Calendar Timezone',
         'display_calendar_timezones',
@@ -63,12 +71,13 @@ function register_booking_settings() {
     );
     
     add_settings_field(
-        'default_attendees',
-        'Event Attendees (comma-separated emails, optional)',
-        'display_calendar_event_attendees_field',
+        'currency',
+        'Currency',
+        'display_currency_field',
         'booking-settings',
         'general_settings'
     );
+    
 }
 
 function fix_json($raw_json) {
@@ -90,9 +99,25 @@ function fix_json($raw_json) {
     }
 }
 
+function get_currency() {
+    $options = get_option('booking_settings');
+    $currency = isset($options['currency']) ? $options['currency'] : 'USD';
+
+    $c_symbol = '$'; // Default to USD
+    if ($currency === 'EUR') {
+        $c_symbol = '€';
+    } elseif ($currency === 'GBP') {
+        $c_symbol = '£';
+    } elseif ($currency === 'JPY') {
+        $c_symbol = '¥';
+    }
+    return sanitize_text_field($c_symbol);
+}
+
 function booking_settings_page() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'rooms';
+    $currency_symbol = get_currency();
 
     // Handle form submissions for room management
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -100,15 +125,54 @@ function booking_settings_page() {
             $name = sanitize_text_field($_POST['room_name']);
             $description = sanitize_textarea_field($_POST['room_description']);
             $max_guests = intval($_POST['max_guests']);
-            $is_available = isset($_POST['is_available']) ? 1 : 0;
+            $cost_per_day = floatval($_POST['cost_per_day']);
+            $amenities = isset($_POST['amenities']) ? serialize($_POST['amenities']) : '';
+
 
             // Insert the new room into the database
-            $wpdb->insert($table_name, array(
-                'name' => $name,
-                'description' => $description,
-                'max_guests' => $max_guests,
-                'is_available' => $is_available
-            ));
+            $wpdb->insert($table_name, 
+                array(
+                    'name' => $name,
+                    'description' => $description,
+                    'max_guests' => $max_guests,
+                    'cost_per_day' => $cost_per_day,
+                    'amenities' => $amenities
+                ),
+                array(
+                    '%s',  // name
+                    '%s',  // description
+                    '%d',  // max_guests
+                    '%f',  // cost_per_day (float)
+                    '%s'   // amenities (string)
+                )
+            );
+        } elseif (isset($_POST['edit_room'])) {
+            $room_id = intval($_POST['room_id']);
+            $name = sanitize_text_field($_POST['room_name']);
+            $description = sanitize_textarea_field($_POST['room_description']);
+            $max_guests = intval($_POST['max_guests']);
+            $cost_per_day = floatval($_POST['cost_per_day']);
+            $amenities = isset($_POST['amenities']) ? serialize($_POST['amenities']) : '';
+
+            // Update the room in the database
+            $wpdb->update($table_name, 
+                array(
+                    'name' => $name,
+                    'description' => $description,
+                    'max_guests' => $max_guests,
+                    'cost_per_day' => $cost_per_day,
+                    'amenities' => $amenities
+                ), 
+                array('id' => $room_id),
+                array(
+                    '%s',  // name (string)
+                    '%s',  // description (string)
+                    '%d',  // max_guests (integer)
+                    '%f',  // cost_per_day (float)
+                    '%s'   // amenities (string)
+                ),
+                array('%d')  // id (integer)
+            );
         } elseif (isset($_POST['delete_room'])) {
             $room_id = intval($_POST['room_id']);
             // Delete the room from the database
@@ -133,6 +197,100 @@ function booking_settings_page() {
             ?>
         </form>
 
+        <h2>Existing Rooms</h2>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Max Guests</th>
+                    <th>Cost Per Day</th>
+                    <th>Amenities</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($rooms) : ?>
+                    <?php foreach ($rooms as $room) : ?>
+                        <tr>
+                            <td><?php echo esc_html($room->id); ?></td>
+                            <td><?php echo esc_html($room->name); ?></td>
+                            <td><?php echo esc_html($room->description); ?></td>
+                            <td><?php echo esc_html($room->max_guests); ?></td>
+                            <td><?php echo esc_html($room->cost_per_day .' '. ( $currency_symbol )); ?></td>
+                            <td>
+                                <?php if ($room->amenities): $amenities = unserialize($room->amenities); ?>
+                                    <ul>
+                                        <?php foreach ($amenities as $amenity_key) : ?>
+                                            <li><?php echo esc_html($amenity_key); ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else : ?>
+                                    <span>No amenities selected</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <div class="actions-dropdown">
+                                    <button class="dropdown-toggle">Actions</button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a href="#" class="edit-room-button" 
+                                            data-room-id="<?php echo esc_attr($room->id); ?>" 
+                                            data-room-name="<?php echo esc_attr($room->name); ?>" 
+                                            data-room-description="<?php echo esc_attr($room->description); ?>" 
+                                            data-max-guests="<?php echo esc_attr($room->max_guests); ?>" 
+                                            data-cost-per-day="<?php echo esc_attr($room->cost_per_day); ?>" 
+                                            data-amenities="<?php echo esc_attr(json_encode(unserialize($room->amenities))); ?>">Edit</a>
+                                        </li>
+                                        <li>
+                                            <form method="post" style="display:inline;">
+                                                <input type="hidden" name="room_id" value="<?php echo esc_attr($room->id); ?>">
+                                                <input type="submit" name="delete_room" class="button-link-delete" value="Delete">
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr><td colspan="6">No rooms found.</td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+
+        <!-- Edit Room Modal -->
+        <div id="edit-room-modal" style="display:none;">
+            <h2>Edit Room</h2>
+            <form method="post">
+                <input type="hidden" name="room_id" id="edit-room-id">
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row"><label for="edit_room_name">Room Name</label></th>
+                        <td><input name="room_name" type="text" id="edit_room_name" class="regular-text" required></td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row"><label for="edit_room_description">Room Description</label></th>
+                        <td><textarea name="room_description" id="edit_room_description" class="large-text" required></textarea></td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row"><label for="edit_max_guests">Max Guests</label></th>
+                        <td><input name="max_guests" type="number" id="edit_max_guests" min="1" class="regular-text" required></td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row"><label for="edit_cost_per_day">Cost per Day (<?php echo $currency_symbol; ?>)</label></th>
+                        <td><input name="cost_per_day" type="number" step="0.01" id="edit_cost_per_day" class="regular-text" required></td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row"><label for="edit_amenities_checkboxes">Amenities</label></th>
+                        <td id="edit-amenities-checkboxes"><?php display_amenities_checkboxes([]); ?></td>
+                    </tr>
+                </table>
+                <p class="submit"><input type="submit" name="edit_room" class="button-primary" value="Save Changes"></p>
+            </form>
+        </div>
+        
         <h2>Add a New Room</h2>
         <form method="post">
             <table class="form-table">
@@ -149,50 +307,21 @@ function booking_settings_page() {
                     <td><input name="max_guests" type="number" id="max_guests" min="1" class="regular-text" required></td>
                 </tr>
                 <tr valign="top">
-                    <th scope="row"><label for="is_available">Available</label></th>
-                    <td><input name="is_available" type="checkbox" id="is_available" checked></td>
+                    <th scope="row"><label for="cost_per_day">Cost per Day (<?php echo $currency_symbol; ?>)</label></th>
+                    <td><input name="cost_per_day" type="number" step="0.01" id="cost_per_day" class="regular-text" required></td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><label for="amenities">Amenities</label></th>
+                    <td><?php display_amenities_checkboxes([]); ?></td>
                 </tr>
             </table>
             <p class="submit"><input type="submit" name="add_room" class="button-primary" value="Add Room"></p>
         </form>
-
-        <h2>Existing Rooms</h2>
-        <table class="wp-list-table widefat fixed striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Description</th>
-                    <th>Max Guests</th>
-                    <th>Available</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if ($rooms) : ?>
-                    <?php foreach ($rooms as $room) : ?>
-                        <tr>
-                            <td><?php echo esc_html($room->id); ?></td>
-                            <td><?php echo esc_html($room->name); ?></td>
-                            <td><?php echo esc_html($room->description); ?></td>
-                            <td><?php echo esc_html($room->max_guests); ?></td>
-                            <td><?php echo $room->is_available ? 'Yes' : 'No'; ?></td>
-                            <td>
-                                <form method="post" style="display:inline;">
-                                    <input type="hidden" name="room_id" value="<?php echo esc_attr($room->id); ?>">
-                                    <input type="submit" name="delete_room" class="button-link-delete" value="Delete">
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else : ?>
-                    <tr><td colspan="6">No rooms found.</td></tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
+        
     </div>
     <?php
 }
+
 
 function display_manage_bookings_page() {
     global $wpdb;
@@ -218,6 +347,9 @@ function display_manage_bookings_page() {
                 <tr>
                     <th>ID</th>
                     <th>Room ID</th>
+                    <th>Total Cost</th>
+                    <th>Paid</th>
+                    <th>Actions</th>
                     <th>Name</th>
                     <th>Email</th>
                     <th>Phone</th>
@@ -225,7 +357,6 @@ function display_manage_bookings_page() {
                     <th>Children</th>
                     <th>Start Date</th>
                     <th>End Date</th>
-                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -234,6 +365,14 @@ function display_manage_bookings_page() {
                         <tr>
                             <td><?php echo esc_html($booking->id); ?></td>
                             <td><?php echo esc_html($booking->room_id); ?></td>
+                            <td><?php echo esc_html($booking->total_cost . ' '. get_currency()); ?></td>
+                            <td><?php echo esc_html($booking->paid ? 'Yes' : 'No'); ?></td>
+                            <td>
+                                <form method="post" style="display:inline;">
+                                    <input type="hidden" name="booking_id" value="<?php echo esc_attr($booking->id); ?>">
+                                    <input type="submit" name="delete_booking" class="button-link-delete" value="Delete">
+                                </form>
+                            </td>
                             <td><?php echo esc_html($booking->name); ?></td>
                             <td><?php echo esc_html($booking->email); ?></td>
                             <td><?php echo esc_html($booking->phone); ?></td>
@@ -241,12 +380,6 @@ function display_manage_bookings_page() {
                             <td><?php echo esc_html($booking->children); ?></td>
                             <td><?php echo esc_html($booking->start_date); ?></td>
                             <td><?php echo esc_html($booking->end_date); ?></td>
-                            <td>
-                                <form method="post" style="display:inline;">
-                                    <input type="hidden" name="booking_id" value="<?php echo esc_attr($booking->id); ?>">
-                                    <input type="submit" name="delete_booking" class="button-link-delete" value="Delete">
-                                </form>
-                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else : ?>
@@ -256,6 +389,33 @@ function display_manage_bookings_page() {
         </table>
     </div>
     <?php
+}
+
+function get_predefined_amenities() {
+    return [
+        'air_conditioning' => 'Air Conditioning',
+        'bath' => 'Bath',
+        'shower' => 'Shower',
+        'balcony' => 'Balcony',
+        'breakfast' => 'Breakfast Included',
+        'pool_view' => 'Pool View',
+        'free_wifi' => 'Free WiFi',
+        // Add more amenities as needed
+    ];
+}
+
+function display_amenities_checkboxes($room = []) {
+    $amenities = get_predefined_amenities();
+    $selected_amenities = isset($room['amenities']) ? $room['amenities'] : [];
+
+    echo '<h3>Select Amenities:</h3>';
+    foreach ($amenities as $key => $label) {
+        $checked = in_array($key, $selected_amenities) ? 'checked' : '';
+        echo '<label>';
+        echo '<input type="checkbox" name="amenities[]" value="' . esc_attr($key) . '" ' . $checked . '> ';
+        echo esc_html($label);
+        echo '</label><br>';
+    }
 }
 
 function sanitize_booking_settings($input) {
@@ -273,6 +433,14 @@ function display_calendar_api_key_field() {
     <?php
 }
 
+function display_calendar_id_field() {
+    $options = get_option('booking_settings');
+    $calendar_id = isset($options['calendar_id']) ? esc_attr($options['calendar_id']) : '';
+    ?>
+    <input type="text" name="booking_settings[calendar_id]" value="<?php echo $calendar_id; ?>" class="regular-text">
+    <?php
+}
+
 function display_calendar_timezones() {
     $options = get_option('booking_settings');
     $default_timezone = 'America/New_York';
@@ -287,11 +455,16 @@ function display_calendar_timezones() {
     echo '</select>';
 }
 
-function display_calendar_event_attendees_field() {
+function display_currency_field() {
     $options = get_option('booking_settings');
-    $attendees = isset($options['calendar_event_attendees']) ? esc_attr($options['calendar_event_attendees']) : '';
+    $currency = isset($options['currency']) ? $options['currency'] : 'USD';
     ?>
-    <input type="text" name="booking_settings[calendar_event_attendees]" value="<?php echo $attendees; ?>" />
+    <select name="booking_settings[currency]">
+        <option value="USD" <?php selected($currency, 'USD'); ?>>USD ($)</option>
+        <option value="EUR" <?php selected($currency, 'EUR'); ?>>EUR (€)</option>
+        <option value="GBP" <?php selected($currency, 'GBP'); ?>>GBP (£)</option>
+        <option value="JPY" <?php selected($currency, 'JPY'); ?>>JPY (¥)</option>
+    </select>
     <?php
 }
 
