@@ -127,8 +127,8 @@ function handle_room_search() {
                     $room_images = get_room_pictures($room['id']);
                     if ($room_images) {
                         echo '<div class="room-images">';
-                        foreach ($room_images as $image_id) {
-                            $image_url = wp_get_attachment_url($image_id);
+                        foreach ($room_images as $image) {
+                            $image_url = wp_get_attachment_url($image->image_id);
                             echo '<img class="room-img" src="' . esc_url($image_url) . '" alt="' . esc_attr($room['name']) . '">';
                         }
                         echo '</div>';
@@ -397,9 +397,11 @@ function format_amenity_name($amenity_key) {
 
 function get_room_pictures($room_id) {
     global $wpdb;
-    $table_name = $wpdb->prefix . 'reservemate_room_images';
-    $query = $wpdb->prepare("SELECT image_id FROM $table_name WHERE room_id = %d", $room_id);
-    return $wpdb->get_col($query);
+    $images_table = $wpdb->prefix . 'reservemate_room_images';
+    return $wpdb->get_results($wpdb->prepare(
+        "SELECT image_id FROM $images_table WHERE room_id = %d",
+        $room_id
+    ));
 }
 
 function enqueue_custom_styles() {
