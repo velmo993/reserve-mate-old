@@ -36,7 +36,7 @@ function display_booking_form() {
 
 function get_room_details($room_id) {
     global $wpdb;
-    $room = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}rooms WHERE id = %d", $room_id), ARRAY_A);
+    $room = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}reservemate_rooms WHERE id = %d", $room_id), ARRAY_A);
     return $room;
 }
 
@@ -44,8 +44,8 @@ add_shortcode('booking_form', 'display_booking_form');
 
 function search_available_rooms($adults, $children, $start_date, $end_date) {
     global $wpdb;
-    $rooms_table = $wpdb->prefix . 'rooms';
-    $bookings_table = $wpdb->prefix . 'bookings';
+    $rooms_table = $wpdb->prefix . 'reservemate_rooms';
+    $bookings_table = $wpdb->prefix . 'reservemate_bookings';
     $total_guests = $adults + $children;
 
     // Get all rooms that can accommodate the total number of guests
@@ -96,7 +96,6 @@ function handle_room_search() {
     ob_start();
     if ($available_rooms) {
         $currency_symbol = get_option('currency_symbol', '$'); // Default is $ if not set
-        echo '<h3>Available Rooms:</h3>';
         echo '<form method="post" id="select-room-form">';
         echo '<div class="form-wrap">';
         echo '<input type="hidden" name="adults" value="' . esc_attr($adults) . '">';
@@ -113,38 +112,61 @@ function handle_room_search() {
                 echo '<label for="room-' . esc_attr($room['id']) . '">' . esc_html($room['name']) . '</label>';
                 echo '</div>';
                 
-                echo '<div class="room-description">' . esc_html($room['description']) . '</div>';
+                if($room['description']) {
+                    echo '<div class="room-description">' . esc_html($room['description']) . '</div>';
+                }
                 echo '<div class="room-availability">';
                 echo '<span class="room-status">Booked, available from ' . esc_html($room['next_available_date']) . '</span>';
                 echo '</div>';
             } else {
                 echo '<div class="room-name-radio">';
-                echo '<input type="radio" id="room-' . esc_attr($room['id']) . '" name="room-id" value="' . esc_attr($room['id']) . '" required>';
-                echo '<label for="room-' . esc_attr($room['id']) . '">' . esc_html($room['name']) . '</label>';
+                    echo '<input type="radio" id="room-' . esc_attr($room['id']) . '" name="room-id" value="' . esc_attr($room['id']) . '" required>';
+                    echo '<label for="room-' . esc_attr($room['id']) . '">' . esc_html($room['name']) . '</label>';
                 echo '</div>';
-                
-                echo '<div class="room-cost">';
-                
-                echo '<span class="cost-per-day">'
-                . esc_html($currency_symbol) .'<i>' . esc_html($room['cost_per_day']) . '</i>' . '/' . 'day';
-                echo '<span>';
+                echo '<div class="room-container">';
+                    $room_images = get_room_pictures($room['id']);
+                    if ($room_images) {
+                        echo '<div class="room-images">';
+                        foreach ($room_images as $image_id) {
+                            $image_url = wp_get_attachment_url($image_id);
+                            echo '<img class="room-img" src="' . esc_url($image_url) . '" alt="' . esc_attr($room['name']) . '">';
+                        }
+                        echo '</div>';
+                    } else {
+                        echo '<div class="room-images">';
+                            echo '<img class="room-img" src="' . esc_url('https://placehold.co/140x140?text=Image+not+available') . '" alt="Placeholder">';
+                            echo '<img class="room-img" src="' . esc_url('https://placehold.co/140x140?text=Image+not+available') . '" alt="Placeholder">';
+                        echo '</div>';
+                    }
+                    echo '<div class="room-details">';
+                        echo '<div class="room-size-guests">';
+                            echo '<div class="room-size">' . esc_html($room['size']) . 'm&sup2;' . '</div>';
+                            echo '<div class="room-max-guests"> ' . esc_html($room['max_guests']) . ' guests' . ' ' . '</div>';
+                        echo '</div>';
+                    echo '</div>';
                 echo '</div>';
-                echo '<div class="room-description">' . esc_html($room['description']) . '</div>';
-              
-                if ($room['amenities']) {
-                    $amenities = unserialize($room['amenities']);
+                $amenities = get_all_room_amenities($room['id']);
+                if (!empty($amenities)) {
                     echo '<div class="room-amenities">';
                     echo '<ul class="available-room-amenities">';
-                    foreach ($amenities as $amenity_key) {
-                        $formatted_name = format_amenity_name($amenity_key);
-                        $icon_class = get_amenity_icon($amenity_key);
+                    foreach ($amenities as $amenity_name) {
+                        $formatted_name = format_amenity_name($amenity_name);
+                        $amenity_icon = get_amenity_icon($amenity_name);
                         echo '<li>';
-                        echo '<i class="' . esc_attr($icon_class) . '" title="' . esc_attr($formatted_name) . '"></i>';
-                        echo '<span class="amenity-name">' . esc_html($formatted_name) . '</span>'; // Optional: show the name next to the icon
+                        echo '<i class="' . esc_attr($amenity_icon) . '" title="' . esc_attr($formatted_name) . '"></i>';
+                        echo '<span class="amenity-name">' . esc_html($formatted_name) . '</span>';
                         echo '</li>';
                     }
                     echo '</ul>';
                     echo '</div>';
+                }
+                echo '<div class="room-cost">';
+                echo '<span class="cost-per-day">'
+                . esc_html($currency_symbol) .'<i>' . esc_html($room['cost_per_day']) . '</i>' . '/' . 'night';
+                echo '<span>';
+                echo '</div>';
+                if($room['description']) {
+                    echo '<div class="room-description"><p>' . esc_html($room['description']) . '</p></div>';
                 }
             }
             
@@ -210,7 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id'])) {
         // Save booking to the database
         global $wpdb;
         $wpdb->insert(
-            $wpdb->prefix . 'bookings',
+            $wpdb->prefix . 'reservemate_bookings',
             array(
                 'room_id' => $room_id,
                 'name' => $name,
@@ -242,27 +264,148 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id'])) {
     }
 }
 
+function get_all_room_amenities($room_id) {
+    global $wpdb;
+
+    // Query to get the amenity names linked to the room
+    $results = $wpdb->get_results(
+        $wpdb->prepare("
+            SELECT a.amenity_name 
+            FROM {$wpdb->prefix}reservemate_amenities AS a
+            INNER JOIN {$wpdb->prefix}reservemate_room_amenities AS ra
+            ON a.id = ra.amenity_id
+            WHERE ra.room_id = %d
+        ", $room_id)
+    );
+
+    // If there are results, return an array of amenity names
+    if ($results) {
+        return wp_list_pluck($results, 'amenity_name');
+    }
+
+    return []; // Return an empty array if no amenities are found
+}
+
 function get_amenity_icon($amenity_key) {
+    // Convert database format to the format used in $amenity_symbols
+    $key = strtolower(str_replace(' ', '_', $amenity_key));
+
+    // Emoji symbols for amenities
     $amenity_symbols = [
-        'air_conditioning' => 'fa fa-snowflake-o',
+        'air_conditioning' => 'fa fa-snowflake',
+        'airport_shuttle' => 'fa fa-shuttle-van',
+        'babysitter' => 'fa fa-baby',
         'balcony' => 'fa fa-tree',
+        'bar' => 'fa fa-glass-whiskey',
         'bath' => 'fa fa-bath',
-        'breakfast' => 'fa fa-cutlery',
+        'bathtub' => 'fa fa-bath',
+        'bbq_grill' => 'fa fa-drumstick-bite',
+        'beach_access' => 'fa fa-umbrella-beach',
+        'bicycle_rental' => 'fa fa-bicycle',
+        'breakfast' => 'fa fa-utensils',
+        'business_center' => 'fa fa-briefcase',
+        'cable_tv' => 'fa fa-tv',
+        'car_rental' => 'fa fa-car',
+        'casino' => 'fa fa-dice',
+        'ceiling_fan' => 'fa fa-fan',
+        'charging_outlets' => 'fa fa-plug',
+        'charging_station' => 'fa fa-charging-station',
+        'child_bed' => 'fa fa-baby',
+        'city_view' => 'fa fa-city',
+        'coffee_maker' => 'fa fa-coffee',
+        'concierge' => 'fa fa-concierge-bell',
+        'conference_room' => 'fa fa-building',
+        'courtyard' => 'fa fa-leaf',
+        'crib' => 'fa fa-baby-carriage',
+        'dining_area' => 'fa fa-chair',
+        'dishwasher' => 'fa fa-utensils',
+        'dj_services' => 'fa fa-music',
+        'driver_service' => 'fa fa-user-tie',
+        'dryer' => 'fa fa-fan',
+        'elevator' => 'fa fa-elevator',
+        'express_checkout' => 'fa fa-receipt',
+        'fan' => 'fa fa-fan',
+        'fire_extinguisher' => 'fa fa-fire-extinguisher',
+        'fireplace' => 'fa fa-fire',
+        'fitness_center' => 'fa fa-heartbeat',
         'free_wifi' => 'fa fa-wifi',
-        'pool_view' => 'fa fa-window-maximize',
+        'fridge' => 'fa fa-ice-cream',
+        'game_room' => 'fa fa-gamepad',
+        'garden_view' => 'fa fa-seedling',
+        'grill' => 'fa fa-drumstick-bite',
+        'gym' => 'fa fa-dumbbell',
+        'hair_dryer' => 'fa fa-wind',
+        'heater' => 'fa fa-thermometer-half',
+        'high_chair' => 'fa fa-child',
+        'in_room_safe' => 'fa fa-shield-alt',
+        'iron' => 'fa fa-tshirt',
+        'jacuzzi' => 'fa fa-hot-tub',
+        'keyless_entry' => 'fa fa-key',
+        'king_bed' => 'fa fa-bed',
+        'kitchen' => 'fa fa-blender',
+        'library' => 'fa fa-book',
+        'lounge' => 'fa fa-couch',
+        'meeting_room' => 'fa fa-handshake',
+        'microwave' => 'fa fa-mitten',
+        'mini_bar' => 'fa fa-glass-cheers',
+        'mini_golf' => 'fa fa-golf-ball',
+        'mountain_view' => 'fa fa-mountain',
+        'non_smoking' => 'fa fa-smoking-ban',
+        'ocean_view' => 'fa fa-water',
+        'outdoor_furniture' => 'fa fa-chair',
+        'parking' => 'fa fa-parking',
+        'patio' => 'fa fa-umbrella-beach',
+        'pet_bedding' => 'fa fa-paw',
+        'pet_friendly' => 'fa fa-paw',
+        'pet_walking' => 'fa fa-dog',
+        'playground' => 'fa fa-swings',
+        'pool_bar' => 'fa fa-cocktail',
+        'pool_view' => 'fa fa-swimming-pool',
+        'private_pool' => 'fa fa-swimming-pool',
+        'restaurant' => 'fa fa-utensils',
+        'rooftop_access' => 'fa fa-building',
+        'room_service' => 'fa fa-bell-concierge',
+        'safe' => 'fa fa-lock',
+        'sauna' => 'fa fa-hot-tub',
+        'security' => 'fa fa-shield-alt',
+        'self_check_in' => 'fa fa-key',
         'shower' => 'fa fa-shower',
+        'ski_in_ski_out' => 'fa fa-skiing',
+        'smoke_alarm' => 'fa fa-exclamation-triangle',
+        'sofa_bed' => 'fa fa-couch',
+        'solar_power' => 'fa fa-solar-panel',
+        'soundproof' => 'fa fa-volume-mute',
+        'spa' => 'fa fa-spa',
+        'stove' => 'fa fa-fire-alt',
+        'towels' => 'fa fa-toilet-paper',
+        'tv' => 'fa fa-tv',
+        'twin_beds' => 'fa fa-bed',
+        'valet_parking' => 'fa fa-car-side',
+        'washer' => 'fa fa-soap',
+        'washing_machine' => 'fa fa-soap',
+        'wheelchair_accessible' => 'fa fa-wheelchair',
+        'workspace' => 'fa fa-laptop',
     ];
-    
-     return isset($amenity_symbols[$amenity_key]) ? $amenity_symbols[$amenity_key] : '❓'; // Default symbol if not found
+
+    // Return the icon if found, otherwise a default one
+    return isset($amenity_symbols[$key]) ? $amenity_symbols[$key] : 'fa fa-info';
 }
 
 function format_amenity_name($amenity_key) {
     return ucwords(str_replace('_', ' ', $amenity_key));
 }
 
+function get_room_pictures($room_id) {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'reservemate_room_images';
+    $query = $wpdb->prepare("SELECT image_id FROM $table_name WHERE room_id = %d", $room_id);
+    return $wpdb->get_col($query);
+}
+
 function enqueue_custom_styles() {
     ?>
     <style>
+    
     /* Custom styling for the booking form */
     #booking-form {
         max-width: 600px;
@@ -313,12 +456,11 @@ function enqueue_custom_styles() {
     /* Custom styling for the select-room-form */
     
     #select-room-form {
-        max-width: 640px;
+        max-width: 80%;
         margin: 0 auto;
         padding: 1rem 0;
         border: 1px solid #ddd;
         border-radius: 8px;
-        background-color: #f9f9f9;
     }
     
     #select-room-form .form-wrap {
@@ -330,6 +472,8 @@ function enqueue_custom_styles() {
         align-items: center;
         flex-direction: column;
         margin-bottom: 3rem;
+        padding: 1rem 2rem;
+        background-color: #f9f9f9;
     }
     
     #select-room-form .form-wrap .available-room > *:not(:first-child) {
@@ -343,7 +487,7 @@ function enqueue_custom_styles() {
         justify-content: space-between;
         flex-direction: row-reverse;
         padding-bottom: 1.2rem;
-        border-bottom: 2px solid;
+        border-bottom: 2px solid #98e6c0;
         margin: 1rem 0;
     }
     
@@ -367,7 +511,6 @@ function enqueue_custom_styles() {
     }
     
     #select-room-form .form-wrap .available-room label {
-        width: 50%;
         text-align: right;
         font-size: 1.3rem;
         font-weight: bold;
@@ -409,12 +552,19 @@ function enqueue_custom_styles() {
         background-color: #005a8d;
     }
     
-    .room-amenities {
+    #select-room-form .room-container {
+        width: 100%;
+        display: flex;
+        height: 100%;
+        justify-content: space-around;    
+    }
+    
+    #select-room-form .room-amenities {
         width: 100%;
     }
     
     
-    .available-room-amenities {
+    #select-room-form .available-room-amenities {
         list-style: none;
         display: flex;
         width: 100%;
@@ -424,17 +574,17 @@ function enqueue_custom_styles() {
         padding: 0;
     }
     
-    .available-room-amenities li {
+    #select-room-form .available-room-amenities li {
         position: relative;
     }
     
-    .available-room-amenities li i {
+    #select-room-form .available-room-amenities li i {
         cursor: pointer;
         display: inline-block;
         font-size: 24px; /* Adjust size of the icon as needed */
     }
     
-    .available-room-amenities li span.amenity-name {
+    #select-room-form .available-room-amenities li span.amenity-name {
         display: none; /* Hide text by default */
         position: absolute;
         bottom: 125%; /* Adjust based on your layout */
@@ -452,7 +602,7 @@ function enqueue_custom_styles() {
         visibility: hidden;
     }
     
-    .available-room-amenities li span.amenity-name::before {
+    #select-room-form .available-room-amenities li span.amenity-name::before {
         content: '';
         position: absolute;
         bottom: -5px; /* Adjust based on your layout */
@@ -464,11 +614,120 @@ function enqueue_custom_styles() {
         z-index: 10;
     }
     
-    .available-room-amenities li i.active + span.amenity-name {
-        display: inline-block; /* Show the text when icon is active */
+    #select-room-form .available-room-amenities li i.active + span.amenity-name {
+        display: inline-block;
         opacity: 1;
         pointer-events: auto;
         visibility: visible;
+    }
+    
+    #select-room-form .room-images {
+        text-align: center;
+    }
+    
+    #select-room-form .room-img {
+        margin: 0.5rem;
+        width: 120px;
+        height: 120px !important;
+    }
+    
+    
+    /* Mobile devices (below 768px) */
+    @media screen and (max-width: 768px) {
+        
+        #select-room-form {
+            max-width: 100%;
+            border: none;
+        }
+        #select-room-form .form-wrap {
+            padding: 1rem 0.5rem;
+        }
+        #select-room-form .form-wrap .available-room {
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            background-color: #f9f9f9;
+        }
+        
+        #select-room-form .form-wrap .available-room .room-name-radio {
+            justify-content: space-around;
+            width: 90%;
+            
+        }
+        
+        #select-room-form .form-wrap .available-room .room-amenities {
+            padding: 0 1rem;
+        }
+        
+        #select-room-form .form-wrap .available-room .room-amenities ul {
+            border: 1px solid #e8e4e4;
+            border-bottom: 0;
+            padding: 1rem 0;
+        }
+        
+        #select-room-form .form-wrap .available-room .room-cost {
+            padding: 0 1rem 1rem;
+        }
+        
+        #select-room-form .form-wrap .available-room .room-cost .cost-per-day {
+            width: 100%;
+            display: inline-block;
+            border: 1px solid #e8e4e4;
+            border-top: none;
+            padding: 1rem;
+        }
+        
+        #select-room-form .form-wrap .available-room .room-description p {
+            width: 100%;
+            display: inline-block;
+            border: 1px solid #e8e4e4;
+            padding: 1rem;
+        }
+        
+        #select-room-form .room-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #select-room-form .room-images {
+            border: 1px solid #e8e4e4;
+            border-bottom: 0;
+            padding: 2rem 0;
+        }
+        
+        #select-room-form .room-details {
+            padding: 0 0 2rem;
+        }
+        
+        #select-room-form .room-size-guests {
+            display: flex;
+            border: 1px solid #e8e4e4;
+        }
+        
+        #select-room-form .room-size-guests > * {
+            width: 50%;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        #select-room-form .room-details .room-size {
+            border-right: 1px solid #e8e4e4;
+        }
+        
+        #select-room-form .room-img {
+            width: 200px;
+            height: 200px !important;
+        }
+        
+        #select-room-form .room-img:not(:first-child) {
+            display: none;
+        }
+        
+        
     }
     
     </style>
@@ -477,5 +736,4 @@ function enqueue_custom_styles() {
 
 add_action('wp_head', 'enqueue_custom_styles');
 add_shortcode('booking_form', 'display_booking_form');
-
 

@@ -1,6 +1,61 @@
+table {
+  border-collapse: collapse;
+}
+
+.existing-rooms-tab table tbody {
+    overflow-y: scroll;    
+}
+
+.room-summary {
+    border-top: 2px solid #000;
+}
+
+.room-details {
+    background-color: #f9f9f9;
+    border-top: 1px solid #ddd;
+    padding: 10px;
+}
+
+.room-details td:last-child > div:last-child {
+    margin-top: 1rem;
+    padding: 0.8rem;
+    border-bottom: 1px solid #dcdcdc;
+}
+
+.room-details-flex {
+    display: flex;
+    padding: 0.8rem;
+    border-bottom: 1px solid #dcdcdc;
+}
+
+.room-details-flex strong {
+    margin: 0 auto 0 0;
+}
+
+.room-details-flex .room-data {
+    padding: 0 1rem 0 0;
+}
+
+.toggle-details {
+    background-color: #0073aa;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+.toggle-details:hover {
+    background-color: #005177;
+}
+
 .actions-dropdown {
     position: relative;
     display: inline-block;
+}
+
+.dropdown-toggle:hover + .dropdown-menu,
+.dropdown-menu:hover {
+    display: block;
 }
 
 .dropdown-toggle {
@@ -27,10 +82,179 @@
 }
 
 .dropdown-menu li {
-    padding: 8px 12px;
     cursor: pointer;
 }
 
 .dropdown-menu li:hover {
     background-color: #f1f1f1;
+}
+
+.dropdown-menu li a {
+    display: block;
+    max-width: 100%;
+    padding: 8px 12px;
+}
+
+.dropdown-menu li form input {
+    display: block;
+    max-width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.dropdown-menu .button-link-delete {
+    padding: 6px 12px;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Faded effect */
+    display: none; /* Hidden by default */
+    z-index: 999; /* Ensure it is above other content */
+}
+
+#edit-room-modal {
+    position: fixed;
+    overflow-y: auto;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Center the modal */
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000; /* Above the overlay */
+    max-width: 600px; /* Adjust the size as needed */
+    height: 80%;
+    width: 90%; /* Responsive width */
+    padding: 20px;
+    display: none; /* Hidden by default */
+}
+
+#edit-room-modal .close-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+#edit-room-modal .form-table th,
+#edit-room-modal .form-table td {
+    padding: 10px 0;
+}
+
+#edit-room-modal .form-table input[type="text"],
+#edit-room-modal .form-table textarea,
+#edit-room-modal .form-table input[type="number"] {
+    width: 100%;
+}
+
+#edit-room-modal .submit input {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background-color: #0073aa;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#edit-room-modal .submit input:hover {
+    background-color: #005177;
+}
+
+/* Style for the tab buttons */
+.tabs {
+    display: flex;
+    border-bottom: 2px solid #ccc;
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    padding: 10px 20px;
+    cursor: pointer;
+    background: #f1f1f1;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    outline: none;
+    transition: background-color 0.3s ease;
+}
+
+.tab-button.active {
+    background: #fff;
+    font-weight: bold;
+    border-bottom: 2px solid #0073aa;
+}
+
+/* Hide all tab content by default */
+.tab-content {
+    display: none;
+}
+
+/* Show the active tab content */
+.tab-content.active {
+    display: block;
+}
+
+.star-required {
+    color: red;
+}
+
+/* Room image upload: preview and drop */
+#drop-area {
+    border: 2px dashed #ccc;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    background-color: #f9f9f9;
+}
+
+#image-preview img {
+    max-width: 100px;
+    margin: 10px;
+    vertical-align: middle;
+}
+
+.image-item {
+    position: relative;
+    display: inline-block;
+    margin: 5px;
+}
+
+.remove-image {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: red;
+    color: white;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 50%;
+}
+
+@media screen and (min-width: 768px) {
+    .room-details-flex {
+        width: 60%;
+        margin: auto;
+        justify-content: space-between;
+    }
+    
+    .room-details-flex strong {
+        margin: 0;
+    }
+    
+    .room-details td:last-child > div:last-child {
+        text-align: center;   
+    }
+
 }
