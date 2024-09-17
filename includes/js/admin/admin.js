@@ -7,24 +7,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const activeTab = localStorage.getItem('activeTab');
     if (activeTab) {
-        // Remove 'active' class from current active elements
         document.querySelectorAll('.tab-button, .tab-content').forEach(function(elem) {
             elem.classList.remove('active');
         });
-        // Add 'active' class to the stored tab
         document.querySelector(`.tab-button[data-target="${activeTab}"]`).classList.add('active');
         document.querySelector(activeTab).classList.add('active');
     }
 
-    // Add click event to all tab buttons
     document.querySelectorAll('.tab-button').forEach(function(button) {
         button.addEventListener('click', function() {
-            // Remove 'active' class from all tabs and tab contents
             document.querySelectorAll('.tab-button, .tab-content').forEach(function(elem) {
                 elem.classList.remove('active');
             });
 
-            // Add 'active' class to the clicked button and its related tab content
             this.classList.add('active');
             const target = this.getAttribute('data-target');
             document.querySelector(target).classList.add('active');
@@ -38,9 +33,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (toggleButtons) {
         toggleButtons.forEach(button => {
             const toggleDetails = function(event) {
-                // Prevent both events from firing simultaneously
                 if (event.type === 'touchstart') {
-                    event.preventDefault(); // Prevent the click event after touchstart
+                    event.preventDefault();
                 }
     
                 const roomId = this.getAttribute('data-room-id');
@@ -62,17 +56,14 @@ document.addEventListener('DOMContentLoaded', function() {
         let preview = document.getElementById('image-preview');
         let fileSelector = document.getElementById('file-selector');
     
-        // Open file dialog when the user clicks on the drop area
         dropArea.addEventListener('click', function() {
             fileInput.click();
         });
 
-        // Handle file selection
         fileInput.addEventListener('change', function() {
             updatePreview(fileInput.files, preview, fileInput);
         });
 
-        // Handle drag-and-drop
         dropArea.addEventListener('dragover', function(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -96,7 +87,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Update the preview of selected images
     function updatePreview(files, previewElement, fileInput) {
         previewElement.innerHTML = '';
         
@@ -124,7 +114,6 @@ document.addEventListener('DOMContentLoaded', function() {
             removeBtn.style.borderRadius = '50%';
             removeBtn.style.padding = '2px 5px';
             
-            // Add click event to remove image
             removeBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -138,7 +127,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Function to remove file from the file input
     function removeFile(index, fileInput) {
         let dt = new DataTransfer();
         
@@ -158,7 +146,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             imagesContainer.innerHTML = '';
             
-            // Ensure data and images array exist and are valid
             if (data && Array.isArray(data.data.images) && data.data.images.length > 0) {
                 data.data.images.forEach(image => {
                     var imageItem = document.createElement('div');
@@ -177,7 +164,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             if(error) {
                 imagesContainer.innerHTML = '<p>Error loading images. Please try again later.</p>';
-                console.log(error);
             }
         });
     }
@@ -217,14 +203,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     tabButtons.forEach(function(button) {
         button.addEventListener('click', function() {
-            // Remove active class from all buttons and tab contents
             tabButtons.forEach(function(btn) { btn.classList.remove('active'); });
             tabContents.forEach(function(content) { content.classList.remove('active'); });
 
-            // Add active class to the clicked button
             button.classList.add('active');
 
-            // Show the corresponding tab content
             var target = document.querySelector(button.getAttribute('data-target'));
             target.classList.add('active');
         });
@@ -234,17 +217,14 @@ document.addEventListener('DOMContentLoaded', function() {
         editRoomButtons.forEach(function(button) {
             button.addEventListener('click', function(e) {
                 e.preventDefault();
-                // Get room data from data attributes
                 let roomId = this.getAttribute('data-room-id');
                 let roomName = this.getAttribute('data-room-name');
                 let roomDescription = this.getAttribute('data-room-description');
                 let maxGuests = this.getAttribute('data-max-guests');
                 let costPerDay = this.getAttribute('data-cost-per-day');
                 let roomSize = this.getAttribute('data-room-size');
-                let roomAmenities = JSON.parse(this.getAttribute('data-amenities')); // Parse the JSON string
+                let roomAmenities = JSON.parse(this.getAttribute('data-amenities'));
                 
-        
-                // Populate the modal fields with room data
                 document.getElementById('edit-room-id').value = roomId;
                 document.getElementById('edit_room_name').value = roomName;
                 document.getElementById('edit_room_description').value = roomDescription;
@@ -289,24 +269,20 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             let amenitiesContainer = document.getElementById('edit_amenities_checkboxes');
-            amenitiesContainer.innerHTML = ''; // Clear previous amenities
+            amenitiesContainer.innerHTML = '';
     
             data.amenities.forEach(function(amenity) {
-                // Create the checkbox input element
                 let checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.name = 'amenities[]';
                 checkbox.value = amenity.id;
     
-                // Set checked property based on the 'selected' property from the response
                 checkbox.checked = amenity.selected;
     
-                // Create the label element
                 let label = document.createElement('label');
                 label.appendChild(checkbox);
                 label.appendChild(document.createTextNode(' ' + amenity.name));
     
-                // Append the label to the container
                 amenitiesContainer.appendChild(label);
                 amenitiesContainer.appendChild(document.createElement('br'));
             });
@@ -316,13 +292,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Function to open the modal
     function openModal() {
         document.querySelector('.modal-overlay').style.display = 'block';
         document.getElementById('edit-room-modal').style.display = 'block';
     }
     
-    // Function to close the modal
     function closeModal() {
         document.querySelector('.modal-overlay').style.display = 'none';
         document.getElementById('edit-room-modal').style.display = 'none';

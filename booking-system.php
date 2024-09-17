@@ -265,14 +265,35 @@ function initialize_date_picker() {
     ?>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        var today = new Date();
+        var tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+        
+        let endDate = document.getElementById('end-date');
+        let startDate = document.getElementById('start-date');
+        endDate ? endDate.setAttribute('placeholder', 'Select Departure Date') : '';
+        startDate ? startDate.setAttribute('placeholder', 'Select Arrival Date') : '';
+        
         flatpickr("#start-date", {
             dateFormat: "Y-m-d",
-            placeholder: "Select Start Date",
+            minDate: tomorrow,
+            disable: [
+                function(date) {
+                    // Disable today
+                    return date.toDateString() === today.toDateString();
+                }
+            ],
         });
 
         flatpickr("#end-date", {
             dateFormat: "Y-m-d",
-            placeholder: "Select End Date",
+            minDate: tomorrow,
+            disable: [
+                function(date) {
+                    // Disable tomorrow
+                    return date.toDateString() === tomorrow.toDateString();
+                }
+            ],
         });
     });
     </script>
@@ -392,8 +413,115 @@ function ajax_fetch_amenities() {
     wp_die();
 }
 
+function load_room_callback() {
+    global $wpdb;
+
+    $page = isset($_GET['page']) ? intval($_GET['page']) : 0;
+    $rooms_per_page = 20;
+    $offset = $page * $rooms_per_page;
+
+    // Fetch search dates if provided
+    $start_date = isset($_GET['start_date']) ? sanitize_text_field($_GET['start_date']) : null;
+    $end_date = isset($_GET['end_date']) ? sanitize_text_field($_GET['end_date']) : null;
+    $start = new DateTime($start_date);
+    $end = new DateTime($end_date);
+    $interval = $start->diff($end);
+    $days_booked = $interval->days;
+    
+    // Fetch rooms from the database
+    $rooms = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}reservemate_rooms LIMIT %d OFFSET %d",
+        $rooms_per_page,
+        $offset
+    ));
+
+    // Fetch bookings for these rooms within the selected date range
+    $bookings_table = $wpdb->prefix . 'reservemate_bookings';
+    $booked_rooms = $wpdb->get_results($wpdb->prepare(
+        "SELECT room_id, MIN(end_date) as next_available_date FROM $bookings_table 
+        WHERE (
+            (start_date <= %s AND end_date >= %s) OR
+            (start_date >= %s AND start_date <= %s)
+        )
+        GROUP BY room_id",
+        $end_date, $start_date, $start_date, $end_date
+    ), ARRAY_A);
+
+    // Map booked rooms by room_id
+    $booked_rooms_map = [];
+    foreach ($booked_rooms as $booked_room) {
+        $booked_rooms_map[$booked_room['room_id']] = $booked_room['next_available_date'];
+    }
+
+    // Prepare room data and check booking status
+    $room_data = [];
+    foreach ($rooms as $room) {
+        $room_id = $room->id;
+        $room_images = get_room_pictures($room_id);
+        $room_amenities = get_all_room_amenities($room_id);
+
+        // Convert image data to array
+        $images = array_map(function($img) {
+            return [
+                'url' => wp_get_attachment_url($img->image_id)
+            ];
+        }, $room_images);
+
+        // Convert amenity data to array
+        $amenities = array_map(function($amenity) {
+            return [
+                'name' => format_amenity_name($amenity),
+                'icon' => get_amenity_icon($amenity)
+            ];
+        }, $room_amenities);
+
+        // Check if the room is booked
+        if (isset($booked_rooms_map[$room->id])) {
+            $is_booked = true;
+            $next_available_date = date('Y-m-d', strtotime($booked_rooms_map[$room->id] . ' +1 day'));
+        } else {
+            $is_booked = false;
+            $next_available_date = null;
+        }
+
+        // Add room data to response
+        $room_data[] = [
+            'id' => $room->id,
+            'name' => $room->name,
+            'is_booked' => $is_booked,
+            'next_available_date' => $next_available_date,
+            'description' => $room->description,
+            'cost_per_day' => $room->cost_per_day,
+            'currency_symbol' => get_option('currency_symbol', '$'),
+            'images' => $images,
+            'size' => $room->size,
+            'max_guests' => $room->max_guests,
+            'amenities' => $amenities,
+            'total_cost' => $days_booked * floatval($room->cost_per_day)
+        ];
+    }
+
+    // Send the response
+    wp_send_json_success([
+        'rooms' => $room_data,
+        'total_rooms' => $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}reservemate_rooms"),
+    ]);
+}
 
 
+// Enqueue script and pass AJAX URL and nonce
+function enqueue_my_scripts() {
+    wp_enqueue_script('frontend-ajax-script', get_template_directory_uri() . '/js/frontend/script.js', array('jquery'));
+    
+    wp_localize_script('frontend-ajax-script', 'ajaxScript', array(
+        'ajaxurl' => admin_url('admin-ajax.php'),
+        'nonce'   => wp_create_nonce('load_room_nonce')
+    ));
+}
+
+add_action('wp_enqueue_scripts', 'enqueue_my_scripts');
+add_action('wp_ajax_load_room', 'load_room_callback');
+add_action('wp_ajax_nopriv_load_room', 'load_room_callback');
 add_action('init', 'create_booking_post_type');
 add_action('admin_enqueue_scripts', 'enqueue_admin_styles');
 add_action('admin_enqueue_scripts', 'enqueue_admin_scripts');
