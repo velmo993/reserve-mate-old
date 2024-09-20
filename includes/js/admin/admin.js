@@ -5,50 +5,61 @@ document.addEventListener('DOMContentLoaded', function() {
     let addRoomTab = document.getElementById('add-room-tab');
     let toggleButtons = document.querySelectorAll('.toggle-details');
     
-    const activeTab = localStorage.getItem('activeTab');
-    if (activeTab) {
-        document.querySelectorAll('.tab-button, .tab-content').forEach(function(elem) {
-            elem.classList.remove('active');
-        });
-        document.querySelector(`.tab-button[data-target="${activeTab}"]`).classList.add('active');
-        document.querySelector(activeTab).classList.add('active');
-    }
-
-    document.querySelectorAll('.tab-button').forEach(function(button) {
-        button.addEventListener('click', function() {
+    if (window.location.search.includes('page=manage-rooms')) {
+        const activeTab = localStorage.getItem('activeTab');
+        if (activeTab) {
             document.querySelectorAll('.tab-button, .tab-content').forEach(function(elem) {
                 elem.classList.remove('active');
             });
-
-            this.classList.add('active');
-            const target = this.getAttribute('data-target');
-            document.querySelector(target).classList.add('active');
-
-            // Store the active tab in localStorage
-            localStorage.setItem('activeTab', target);
-        });
-    });
-
-
-    if (toggleButtons) {
-        toggleButtons.forEach(button => {
-            const toggleDetails = function(event) {
-                if (event.type === 'touchstart') {
-                    event.preventDefault();
-                }
+            document.querySelector(`.tab-button[data-target="${activeTab}"]`).classList.add('active');
+            document.querySelector(activeTab).classList.add('active');
+        }
     
-                const roomId = this.getAttribute('data-room-id');
-                const detailsRow = document.getElementById('details-' + roomId);
-                const isVisible = detailsRow.style.display === 'table-row';
-                
-                detailsRow.style.display = isVisible ? 'none' : 'table-row';
-                this.innerHTML = isVisible ? '<i class="fa fa-arrow-down" aria-hidden="true"></i>' : '<i class="fa fa-arrow-up" aria-hidden="true"></i>';
-            };
-            
-            button.addEventListener('click', toggleDetails);
-            button.addEventListener('touchstart', toggleDetails);
+        document.querySelectorAll('.tab-button').forEach(function(button) {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.tab-button, .tab-content').forEach(function(elem) {
+                    elem.classList.remove('active');
+                });
+    
+                this.classList.add('active');
+                const target = this.getAttribute('data-target');
+                document.querySelector(target).classList.add('active');
+    
+                // Store the active tab in localStorage
+                localStorage.setItem('activeTab', target);
+            });
         });
     }
+    
+    function setupToggleDetails(toggleClass, dataIdPrefix) {
+        const toggleButtons = document.querySelectorAll(toggleClass);
+    
+        if (toggleButtons) {
+            toggleButtons.forEach(button => {
+                const toggleDetails = function(event) {
+                    if (event.type === 'touchstart') {
+                        event.preventDefault();
+                    }
+    
+                    const entityId = this.getAttribute(`data-${dataIdPrefix}-id`);
+                    const detailsRow = document.getElementById('details-' + entityId);
+                    const isVisible = detailsRow.style.display === 'table-row';
+    
+                    detailsRow.style.display = isVisible ? 'none' : 'table-row';
+                    this.innerHTML = isVisible ? '<i class="fa fa-arrow-down" aria-hidden="true"></i>' : '<i class="fa fa-arrow-up" aria-hidden="true"></i>';
+                };
+    
+                button.addEventListener('click', toggleDetails);
+                button.addEventListener('touchstart', toggleDetails);
+            });
+        }
+    }
+    
+    setupToggleDetails('.toggle-details-room', 'room');
+    
+    setupToggleDetails('.toggle-details-booking', 'booking');
+    
+    
     
     if(addRoomTab) {
         let dropArea = document.getElementById('drop-area');

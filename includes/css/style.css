@@ -10,33 +10,34 @@ table {
     border-top: 2px solid #000;
 }
 
-.room-details {
+.table-details{
     background-color: #f9f9f9;
     border-top: 1px solid #ddd;
     padding: 10px;
 }
 
-.room-details td:last-child > div:last-child {
+.table-details td:last-child > div:last-child {
     margin-top: 1rem;
     padding: 0.8rem;
     border-bottom: 1px solid #dcdcdc;
 }
 
-.room-details-flex {
+.table-details-flex {
     display: flex;
     padding: 0.8rem;
     border-bottom: 1px solid #dcdcdc;
 }
 
-.room-details-flex strong {
+.table-details-flex strong {
     margin: 0 auto 0 0;
 }
 
-.room-details-flex .room-data {
+.table-details-flex .room-data {
     padding: 0 1rem 0 0;
 }
 
-.toggle-details {
+.toggle-details-room,
+.toggle-details-booking {
     background-color: #0073aa;
     color: white;
     border: none;
@@ -44,7 +45,8 @@ table {
     cursor: pointer;
 }
 
-.toggle-details:hover {
+.toggle-details-room:hover,
+.toggle-details-booking:hover {
     background-color: #005177;
 }
 
@@ -243,17 +245,17 @@ table {
 }
 
 @media screen and (min-width: 768px) {
-    .room-details-flex {
+    .table-details-flex {
         width: 60%;
         margin: auto;
         justify-content: space-between;
     }
     
-    .room-details-flex strong {
+    .table-details-flex strong {
         margin: 0;
     }
     
-    .room-details td:last-child > div:last-child {
+    .table-details td:last-child > div:last-child {
         text-align: center;   
     }
 

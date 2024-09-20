@@ -6,21 +6,21 @@ defined('ABSPATH') or die('No script please!');
 function add_admin_menu() {
     // Add the main menu page
     add_menu_page(
-        'Booking System Settings',    // Page title
-        'Booking Settings',           // Menu title
-        'manage_options',             // Capability required
-        'booking-settings',           // Menu slug for main page
-        'booking_settings_page'       // Callback function for the main page (general settings)
+        'Booking System Settings',
+        'Booking Settings',          
+        'manage_options',             
+        'booking-settings',           
+        'booking_settings_page'       
     );
 
     // Add "Settings" submenu under "Booking Settings"
     add_submenu_page(
         'booking-settings', 
-        'Settings',                   // Page title
-        'Settings',                   // Menu title
+        'Settings',                   
+        'Settings',                   
         'manage_options', 
-        'booking-settings',           // This keeps the same slug to show this page as the main page
-        'booking_settings_page'       // Callback function for the "Settings" page
+        'booking-settings',           
+        'booking_settings_page'       
     );
 
     // Add "Manage Rooms" submenu under "Booking Settings"
@@ -29,8 +29,8 @@ function add_admin_menu() {
         'Manage Rooms', 
         'Manage Rooms', 
         'manage_options', 
-        'manage-rooms',               // Unique slug for "Manage Rooms"
-        'manage_rooms_page'           // Unique callback function for "Manage Rooms"
+        'manage-rooms',               
+        'manage_rooms_page'           
     );
 
     // Add "Manage Bookings" submenu under "Booking Settings"
@@ -39,19 +39,17 @@ function add_admin_menu() {
         'Manage Bookings', 
         'Manage Bookings', 
         'manage_options', 
-        'manage-bookings',            // Unique slug for "Manage Bookings"
-        'display_manage_bookings_page'// Callback function for "Manage Bookings"
+        'manage-bookings',
+        'display_manage_bookings_page'
     );
 }
 
 // Register and display booking settings
 function register_booking_settings() {
-    // Register the settings
     register_setting('booking_settings_group', 'booking_settings', array(
         'sanitize_callback' => 'sanitize_booking_settings'
     ));
 
-    // Add the General Settings section
     add_settings_section(
         'general_settings',
         'General Settings',
@@ -59,7 +57,6 @@ function register_booking_settings() {
         'booking-settings'
     );
 
-    // Add the fields for the General Settings section
     add_settings_field(
         'calendar_api_key',
         'Google Calendar API Credentials (JSON)',
@@ -115,7 +112,6 @@ function booking_settings_page() {
 function manage_rooms_page() {
     global $wpdb;
     $currency_symbol = get_currency();
-    // Handle form submissions
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = isset($_POST['room_name']) ? sanitize_text_field($_POST['room_name']) : '';
         $description = isset($_POST['room_description']) ? sanitize_textarea_field($_POST['room_description']) : '';
@@ -140,7 +136,6 @@ function manage_rooms_page() {
     render_tabs();
     render_add_room_form($currency_symbol);
     render_manage_amenities();
-    // Fetch and display rooms
     $rooms = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}reservemate_rooms");
     render_existing_rooms($rooms, $currency_symbol);
 }
@@ -161,7 +156,6 @@ function handle_room_insert($data) {
     $room_id = $wpdb->insert_id;
 
     if ($room_id) {
-        // Handle amenities and image uploads
         insert_room_amenities($room_id, $data['amenities']);
         handle_image_upload($room_id);
     }
@@ -180,16 +174,12 @@ function handle_room_update($data) {
     ];
     $data['amenities'] = isset($data['amenities']) ? $data['amenities'] : [];
     
-    // Update room information
     $wpdb->update($table_name, $room_data, ['id' => intval($data['room_id'])]);
 
-    // Update room amenities
     update_room_amenities($data['room_id'], $data['amenities']);
 
-    // Handle new image uploads
     handle_image_upload($data['room_id']);
     
-    // Handle image removal
     if (!empty($data['remove_images'])) {
         remove_room_images($data['remove_images']);
     }
@@ -221,10 +211,8 @@ function update_room_amenities($room_id, $amenities = []) {
     global $wpdb;
     $room_amenities_table = $wpdb->prefix . 'reservemate_room_amenities';
 
-    // First, delete existing amenities for the room
     $wpdb->delete($room_amenities_table, ['room_id' => $room_id]);
 
-    // Then, insert the new amenities
     if (!empty($amenities) && is_array($amenities)) {
         foreach ($amenities as $amenity_id) {
             $wpdb->insert($room_amenities_table, [
@@ -265,10 +253,8 @@ function remove_room_images($image_ids) {
     $image_ids_array = explode(',', sanitize_text_field($image_ids));
 
     foreach ($image_ids_array as $image_id) {
-        // Remove image from the `reservemate_room_images` table
         $wpdb->delete($wpdb->prefix . 'reservemate_room_images', ['id' => intval($image_id)]);
         
-        // Optionally, you can remove the physical image from the uploads directory as well:
         $attachment = get_post($image_id);
         if ($attachment) {
             wp_delete_attachment($image_id, true);
@@ -360,7 +346,7 @@ function render_existing_rooms($rooms, $currency_symbol) {
                             <td colspan="2"><?php echo esc_html($room->id); ?></td>
                             <td colspan="4"><?php echo esc_html($room->name); ?></td>
                             <td colspan="3">
-                                <button class="toggle-details" data-room-id="<?php echo esc_attr($room->id); ?>"><i class="fa fa-arrow-down" aria-hidden="true"></i></button>
+                                <button class="toggle-details-room" data-room-id="<?php echo esc_attr($room->id); ?>"><i class="fa fa-arrow-down" aria-hidden="true"></i></button>
                             </td>
                             <td colspan="3">
                                 <div class="actions-dropdown">
@@ -386,13 +372,13 @@ function render_existing_rooms($rooms, $currency_symbol) {
                                 </div>
                             </td>
                         </tr>
-                        <tr class="room-details" id="details-<?php echo esc_attr($room->id); ?>" style="display: none;">
+                        <tr class="table-details" id="details-<?php echo esc_attr($room->id); ?>" style="display: none;">
                             <td colspan="12">
                                 <div>
-                                    <div class="room-details-flex"><strong>Max guests:</strong><span class="room-data"><?php echo esc_html($room->max_guests); ?></span></div>
-                                    <div class="room-details-flex"><strong>Cost per Night:</strong><span class="room-data"><?php echo esc_html($room->cost_per_day . ' ' . $currency_symbol); ?></span></div>
-                                    <div class="room-details-flex"><strong>Size:</strong><span class="room-data"><?php echo esc_html($room->size) . 'm&sup2;'; ?></span></div>
-                                    <div class="room-details-flex">
+                                    <div class="table-details-flex"><strong>Max guests:</strong><span class="room-data"><?php echo esc_html($room->max_guests); ?></span></div>
+                                    <div class="table-details-flex"><strong>Cost per Night:</strong><span class="room-data"><?php echo esc_html($room->cost_per_day . ' ' . $currency_symbol); ?></span></div>
+                                    <div class="table-details-flex"><strong>Size:</strong><span class="room-data"><?php echo esc_html($room->size) . 'm&sup2;'; ?></span></div>
+                                    <div class="table-details-flex">
                                         <strong>Amenities:</strong>
                                         <div class="room-data">
                                             <?php if ($amenities): ?>
@@ -406,7 +392,7 @@ function render_existing_rooms($rooms, $currency_symbol) {
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                    <div class="room-details-flex"><strong>Description:</strong><span class="room-data"><?php echo esc_html($room->description); ?></span></div>
+                                    <div class="table-details-flex"><strong>Description:</strong><span class="room-data"><?php echo esc_html($room->description); ?></span></div>
                                 </div>
                                 <div>
                                     <?php
@@ -529,63 +515,59 @@ function display_manage_bookings_page() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'reservemate_bookings';
 
-    // Handle booking deletion
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_booking'])) {
         $booking_id = intval($_POST['booking_id']);
-        // Delete the booking from the database
         $wpdb->delete($table_name, array('id' => $booking_id));
     }
 
-    // Retrieve all bookings from the database
     $bookings = $wpdb->get_results("SELECT * FROM $table_name");
 
     ?>
     <div class="wrap">
-        <h1>Manage Bookings</h1>
-
         <h2>Existing Bookings</h2>
         <table class="wp-list-table widefat fixed striped">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Room ID</th>
-                    <th>Total Cost</th>
-                    <th>Paid</th>
-                    <th>Actions</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Adults</th>
-                    <th>Children</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
+                    <th colspan="1">ID</th>
+                    <th colspan="2">Room ID</th>
+                    <th colspan="2">Total Cost</th>
+                    <th colspan="2">Paid</th>
+                    <th colspan="2">Details</th>
+                    <th colspan="2">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if ($bookings) : ?>
                     <?php foreach ($bookings as $booking) : ?>
-                        <tr>
-                            <td><?php echo esc_html($booking->id); ?></td>
-                            <td><?php echo esc_html($booking->room_id); ?></td>
-                            <td><?php echo esc_html($booking->total_cost . ' '. get_currency()); ?></td>
-                            <td><?php echo esc_html($booking->paid ? 'Yes' : 'No'); ?></td>
-                            <td>
+                        <tr class="booking-summary">
+                            <td colspan="1"><?php echo esc_html($booking->id); ?></td>
+                            <td colspan="2"><?php echo esc_html($booking->room_id); ?></td>
+                            <td colspan="2"><?php echo esc_html($booking->total_cost . ' ' . get_currency()); ?></td>
+                            <td colspan="2"><?php echo esc_html($booking->paid ? 'Yes' : 'No'); ?></td>
+                            <td colspan="2">
+                                <button class="toggle-details-booking" data-booking-id="<?php echo esc_attr($booking->id); ?>"><i class="fa fa-arrow-down" aria-hidden="true"></i></button>
+                            </td>
+                            <td colspan="2">
                                 <form method="post" style="display:inline;">
                                     <input type="hidden" name="booking_id" value="<?php echo esc_attr($booking->id); ?>">
                                     <input type="submit" name="delete_booking" class="button-link-delete" value="Delete" onclick="if (!confirm('Are you sure?')) { return false }">
                                 </form>
                             </td>
-                            <td><?php echo esc_html($booking->name); ?></td>
-                            <td><?php echo esc_html($booking->email); ?></td>
-                            <td><?php echo esc_html($booking->phone); ?></td>
-                            <td><?php echo esc_html($booking->adults); ?></td>
-                            <td><?php echo esc_html($booking->children); ?></td>
-                            <td><?php echo esc_html($booking->start_date); ?></td>
-                            <td><?php echo esc_html($booking->end_date); ?></td>
+                        </tr>
+                        <tr class="table-details" id="details-<?php echo esc_attr($booking->id); ?>" style="display: none;">
+                            <td colspan="8">
+                                <div class="table-details-flex"><strong>Name:</strong><span class="booking-data"><?php echo esc_html($booking->name); ?></span></div>
+                                <div class="table-details-flex"><strong>Email:</strong><span class="booking-data"><?php echo esc_html($booking->email); ?></span></div>
+                                <div class="table-details-flex"><strong>Phone:</strong><span class="booking-data"><?php echo esc_html($booking->phone); ?></span></div>
+                                <div class="table-details-flex"><strong>Adults:</strong><span class="booking-data"><?php echo esc_html($booking->adults); ?></span></div>
+                                <div class="table-details-flex"><strong>Children:</strong><span class="booking-data"><?php echo esc_html($booking->children); ?></span></div>
+                                <div class="table-details-flex"><strong>Arrival:</strong><span class="booking-data"><?php echo esc_html($booking->start_date); ?></span></div>
+                                <div class="table-details-flex"><strong>Departure:</strong><span class="booking-data"><?php echo esc_html($booking->end_date); ?></span></div>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else : ?>
-                    <tr><td colspan="10">No bookings found.</td></tr>
+                    <tr><td colspan="8">No bookings found.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -643,7 +625,6 @@ function display_room_images($room_id) {
             $image_url = wp_get_attachment_url($image->image_id);
             echo '<div class="image-item">';
             echo '<img src="' . esc_url($image_url) . '" width="100" height="auto">';
-            // Add X button for deletion
             echo '<span class="remove-image" data-image-id="' . esc_attr($image->image_id) . '">&times;</span>';
             echo '</div>';
         }
@@ -666,10 +647,8 @@ function get_predefined_amenities() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'reservemate_amenities';
 
-    // Get all amenities from the amenities table
     $results = $wpdb->get_results("SELECT id, amenity_name FROM $table_name", ARRAY_A);
 
-    // Create an associative array of amenity ID => amenity name
     $amenities = [];
     if ($results) {
         foreach ($results as $amenity) {
@@ -694,11 +673,9 @@ function get_room_amenities($room_id) {
 function save_room_amenities($room_id) {
     global $wpdb;
 
-    // Remove all current amenities for the room
     $table_name = $wpdb->prefix . 'reservemate_room_amenities';
     $wpdb->delete($table_name, ['room_id' => $room_id]);
 
-    // Insert new amenities
     if (!empty($_POST['amenities'])) {
         $amenities = $_POST['amenities'];
         foreach ($amenities as $amenity_id) {
@@ -714,7 +691,7 @@ function get_currency() {
     $options = get_option('booking_settings');
     $currency = isset($options['currency']) ? $options['currency'] : 'USD';
 
-    $c_symbol = '$'; // Default to USD
+    $c_symbol = '$';
     if ($currency === 'EUR') {
         $c_symbol = '€';
     } elseif ($currency === 'GBP') {
@@ -737,7 +714,6 @@ function fix_json($raw_json) {
         if (json_last_error() === JSON_ERROR_NONE) {
             return json_encode($decoded, JSON_PRETTY_PRINT);
         } else {
-            // Log error or handle it as needed
             // error_log('Invalid JSON: ' . json_last_error_msg());
             return false;
         }
@@ -747,10 +723,8 @@ function fix_json($raw_json) {
 function display_amenities_checkboxes($room_id = null) {
     global $wpdb;
     
-    // Fetch predefined amenities
     $amenities = get_predefined_amenities();
     
-    // Fetch selected amenities for the current room (if any)
     $selected_amenities = [];
     if ($room_id) {
         $results = $wpdb->get_col($wpdb->prepare(
