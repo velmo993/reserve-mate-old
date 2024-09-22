@@ -2,10 +2,8 @@
 // Prevent direct access
 defined('ABSPATH') or die('No script please!');
 
-// Include the Google Calendar functions
 require_once(plugin_dir_path(__FILE__) . 'google-calendar.php');
 
-// Register shortcode for booking form
 function display_search_form() {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['adults'])) {
         // Process the form submission
@@ -49,11 +47,51 @@ function handle_room_search() {
     $children = intval($_POST['children']);
     $start_date = sanitize_text_field($_POST['start-date']);
     $end_date = sanitize_text_field($_POST['end-date']);
+    $options = get_option('booking_settings');
+    $currency = get_currency();
 
     ob_start(); ?>
         <form method="post" id="select-room-form">
             <button id="prev-room" disabled><i class="fa fa-caret-left"></i></button>
             <button id="next-room"><i class="fa fa-caret-right"></i></button>
+            <button id="filter-btn"><i class="fa fa-filter"></i></button>
+            <button id="reset-filters"><i class="fa fa-redo"></i></button>
+            <div id="filter-menu" class="filter-modal">
+                <div class="filter-content">
+                    <span id="close-modal">&times;</span>
+                    <h3>Filter Options</h3>
+                    <label for="min-price-range">Min Price:</label>
+                    <input type="range" id="min-price-range" name="min-price-range" min="20" max="400" step="10" value="20">
+                    
+                    <label for="max-price-range">Max Price:</label>
+                    <input type="range" id="max-price-range" name="max-price-range" min="120" max="500" step="10" value="120">
+                    
+                    <span id="price-range-display"><?php echo $currency ?> 20 - <?php echo $currency ?> 120</span>
+                    
+                    <div class="filter-room-size">
+                        <label for="room-size-select">Room Size (Min):</label>
+                        <select id="room-size-select">
+                            <option value="none">None</option>
+                            <option value="10">10 m²</option>
+                            <option value="20">20 m²</option>
+                            <option value="30">30 m²</option>
+                            <option value="40">40 m²</option>
+                            <option value="50">50 m²</option>
+                            <option value="60">60 m²</option>
+                            <option value="70">70 m²</option>
+                            <option value="80">80 m²</option>
+                            <option value="90">90 m²</option>
+                            <option value="100">100 m²</option>
+                        </select>
+                    </div>
+                    
+                    <label for="amenities-container">Amenities:</label>
+                    <div id="amenities-container"></div>
+                    
+                    <button id="apply-filters">Apply Filters</button>
+                </div>
+            </div>
+            
             <div class="form-wrap">
                 <input type="hidden" name="select-room-adults" id="select-room-adults" value="<?php echo esc_attr($adults); ?>">
                 <input type="hidden" name="select-room-children" id="select-room-children" value="<?php echo esc_attr($children); ?>">
@@ -61,18 +99,14 @@ function handle_room_search() {
                 <input type="hidden" name="select-room-end-date" id="select-room-end-date" value="<?php echo esc_attr($end_date); ?>">
                 
                 <div id="rooms-container"></div>
-    
+                
             </div>
         </form>
 
     <?php return ob_get_clean();
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id'])) {
-    if(!isset($_POST['name'])) {
-        echo display_booking_form();
-        return;
-    }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id']) && isset($_POST['name'])) {
     
     $room_id = sanitize_text_field($_POST['room-id']);
     $name = sanitize_text_field($_POST['name']);
@@ -89,10 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id'])) {
     $cost_per_day = get_room_cost($room_id);
     $total_cost = $days_booked * floatval($cost_per_day);
 
-    // Save booking to the database
     save_booking_to_db($room_id, $name, $email, $phone, $adults, $children, $start_date, $end_date, $total_cost, 0);
-    // Sync booking with Google Calendar
-    save_booking_to_calendar($room_id, $adults, $children, $start_date, $end_date);
+
+    save_booking_to_calendar($room_id, $adults, $children, $start_date, $end_date, $name, $email);
     
     header('Location: ' . add_query_arg('booking_status', 'success', $_SERVER['REQUEST_URI']));
     exit;
@@ -133,16 +166,26 @@ function save_booking_to_db($room_id, $name, $email, $phone, $adults, $children,
     );
 }
 
-function save_booking_to_calendar($room_id, $adults, $children, $start_date, $end_date) {
+function save_booking_to_calendar($room_id, $adults, $children, $start_date, $end_date, $name, $email) {
     $room = get_room_details($room_id);
+    $options = get_option('booking_settings');
+    $checkin_time = isset($options['checkin_time']) ? esc_attr($options['checkin_time']) : '14:00';
+    $checkout_time = isset($options['checkout_time']) ? esc_attr($options['checkout_time']) : '12:00';
     
     $event_details = array(
         'summary' => 'Booked Room: ' . $room['name'],
-        'description' => 'Room: ' . $room['name'] .' '. 'Adults: ' . $adults .' '. 'Children: ' . $children,
-        'start' => $start_date . 'T14:00:00', // Assuming check-in time is 14:00
-        'end' => $end_date . 'T12:00:00', // Assuming check-out time is 12:00
+        'description' => 'Room: ' . $room['name'] . "\n" .
+                 'Booked by: ' . $name . "\n" .
+                 'Email: ' . $email . "\n" .
+                 'Adults: ' . $adults . "\n" .
+                 'Children: ' . $children,
+        'start' => $start_date . 'T' . $checkin_time . ':00',
+        'end' => $end_date . 'T' . $checkout_time . ':00',
+        'attendees' => array(
+            array('email' => $email),
+        ),
     );
-
+    
     $result = sync_with_google_calendar($event_details);
 }
 
@@ -161,7 +204,6 @@ function get_room_details($room_id) {
 function get_all_room_amenities($room_id) {
     global $wpdb;
 
-    // Query to get the amenity names linked to the room
     $results = $wpdb->get_results(
         $wpdb->prepare("
             SELECT a.amenity_name 
@@ -172,19 +214,16 @@ function get_all_room_amenities($room_id) {
         ", $room_id)
     );
 
-    // If there are results, return an array of amenity names
     if ($results) {
         return wp_list_pluck($results, 'amenity_name');
     }
 
-    return []; // Return an empty array if no amenities are found
+    return [];
 }
 
 function get_amenity_icon($amenity_key) {
-    // Convert database format to the format used in $amenity_symbols
     $key = strtolower(str_replace(' ', '_', $amenity_key));
 
-    // Emoji symbols for amenities
     $amenity_symbols = [
         'air_conditioning' => 'fa fa-snowflake',
         'airport_shuttle' => 'fa fa-shuttle-van',
@@ -281,7 +320,6 @@ function get_amenity_icon($amenity_key) {
         'workspace' => 'fa fa-laptop',
     ];
 
-    // Return the icon if found, otherwise a default one
     return isset($amenity_symbols[$key]) ? $amenity_symbols[$key] : 'fa fa-info';
 }
 
@@ -301,7 +339,7 @@ function get_room_pictures($room_id) {
 function enqueue_custom_styles() {
     ?>
     <style>
-    
+
     #search-room-form {
         max-width: 600px;
         margin: 0 auto;
@@ -377,21 +415,21 @@ function enqueue_custom_styles() {
     
     #prev-room {
         position: fixed;
-        top: 0;
+        top: 50%;
         left: 0;
-        height: 100%;
+        height: 10%;
         display: flex;
         justify-content: center;
         align-items: center;
         padding: 2px;
         background: transparent;
     }
-    
+
     #next-room {
         position: fixed;
-        top: 0;
+        top: 50%;
         right: 0;
-        height: 100%;
+        height: 10%;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -401,8 +439,16 @@ function enqueue_custom_styles() {
     
     #prev-room i,
     #next-room i {
-        font-size: 4rem;
+        font-size: 3rem;
         color: #000;
+    }
+    
+    #filter-btn {
+        margin-left: 1.4rem;    
+    }
+    
+    #reset-filters {
+        background: gray;
     }
 
     #select-room-form .form-wrap .available-room {
@@ -679,6 +725,140 @@ function enqueue_custom_styles() {
         touch-action: none;
     }
     
+    .range-container {
+        display: flex;
+        justify-content: space-between;
+        padding: 1rem;
+    }
+    
+    
+        /* General styling for range sliders */
+    input[type="range"] {
+        -webkit-appearance: none; /* Remove default styling */
+        width: 100%; /* Full width */
+        background: #ddd; /* Background color */
+        border-radius: 5px; /* Rounded corners */
+        outline: none; /* Remove outline */
+        margin: 0;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    /* Thumb (the draggable part) styling */
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none; /* Remove default styling */
+        appearance: none;
+        width: 1px; /* Increase thumb width */
+        height: 25px; /* Increase thumb height */
+        
+        background: #4CAF50; /* Thumb color */
+        border-radius: 40%; /* Round thumb */
+        cursor: pointer; /* Pointer on hover */
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+        width: 1px; /* Increase thumb width */
+        height: 25px; /* Increase thumb height */
+        
+        background: #4CAF50; /* Thumb color */
+        border-radius: 40%; /* Round thumb */
+        cursor: pointer; /* Pointer on hover */
+    }
+    
+    /* For Firefox */
+    input[type="range"]::-ms-thumb {
+        width: 1px; /* Increase thumb width */
+        height: 25px; /* Increase thumb height */
+        
+        background: #4CAF50; /* Thumb color */
+        border-radius: 40%; /* Round thumb */
+        cursor: pointer; /* Pointer on hover */
+    }
+    
+    /* Optional: Styling for the track */
+    input[type="range"]::-webkit-slider-runnable-track {
+        background: #ddd; /* Background for the track */
+        border-radius: 5px; /* Rounded corners */
+    }
+    
+    input[type="range"]::-moz-range-track {
+        background: #ddd; /* Background for the track */
+        border-radius: 5px; /* Rounded corners */
+    }
+    
+    input[type="range"]::-ms-track {
+        background: #ddd; /* Background for the track */
+        border-radius: 5px; /* Rounded corners */
+    }
+    
+    /* Hide default input styles for Internet Explorer */
+    input[type="range"]::-ms-fill-lower {
+        background: #ddd;
+        border-radius: 5px;
+    }
+    
+    input[type="range"]::-ms-fill-upper {
+        background: #ddd;
+        border-radius: 5px;
+    }
+    
+    .filter-modal {
+        display: none;
+        position: fixed;
+        z-index: 100;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .filter-menu {
+        height: 80%;
+    }
+
+    .filter-content {
+        background-color: #fff;
+        height: 80%;
+        margin-top: 140px;
+        margin: 15% auto;
+        padding: 20px;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 400px;
+    }
+    
+    .filter-room-size {
+        padding: 1rem 0;
+    }
+    
+    #amenities-container {
+        display: flex;
+        flex-direction: column;
+        height: 30%;
+        overflow-y: scroll;
+        margin: 0.5rem 0 1rem;
+    }
+
+    #close-modal {
+        cursor: pointer;
+        float: right;
+        font-size: 24px;
+    }
+    
+    .filter-room-size select {
+        padding: 0.5rem;
+    }
+    
+    #apply-filters {
+        margin-top: 1rem;
+    }
+    
+    #room-counter {
+        text-align: center;
+    }
+    
+    
+    
     
     /****************************  Mobile devices (below 768px) ******************************************/
     @media screen and (max-width: 768px) {
@@ -777,6 +957,7 @@ function enqueue_custom_styles() {
         }
         
     }
+    /****************************  Mobile devices (below 768px) end ******************************************/
     
     </style>
     <?php

@@ -279,7 +279,6 @@ function initialize_date_picker() {
             minDate: tomorrow,
             disable: [
                 function(date) {
-                    // Disable today
                     return date.toDateString() === today.toDateString();
                 }
             ],
@@ -290,7 +289,6 @@ function initialize_date_picker() {
             minDate: tomorrow,
             disable: [
                 function(date) {
-                    // Disable tomorrow
                     return date.toDateString() === tomorrow.toDateString();
                 }
             ],
@@ -420,7 +418,6 @@ function load_room_callback() {
     $rooms_per_page = 20;
     $offset = $page * $rooms_per_page;
 
-    // Fetch search dates if provided
     $start_date = isset($_GET['start_date']) ? sanitize_text_field($_GET['start_date']) : null;
     $end_date = isset($_GET['end_date']) ? sanitize_text_field($_GET['end_date']) : null;
     $start = new DateTime($start_date);
@@ -428,14 +425,12 @@ function load_room_callback() {
     $interval = $start->diff($end);
     $days_booked = $interval->days;
     
-    // Fetch rooms from the database
     $rooms = $wpdb->get_results($wpdb->prepare(
         "SELECT * FROM {$wpdb->prefix}reservemate_rooms LIMIT %d OFFSET %d",
         $rooms_per_page,
         $offset
     ));
 
-    // Fetch bookings for these rooms within the selected date range
     $bookings_table = $wpdb->prefix . 'reservemate_bookings';
     $booked_rooms = $wpdb->get_results($wpdb->prepare(
         "SELECT room_id, MIN(end_date) as next_available_date FROM $bookings_table 
@@ -447,27 +442,23 @@ function load_room_callback() {
         $end_date, $start_date, $start_date, $end_date
     ), ARRAY_A);
 
-    // Map booked rooms by room_id
     $booked_rooms_map = [];
     foreach ($booked_rooms as $booked_room) {
         $booked_rooms_map[$booked_room['room_id']] = $booked_room['next_available_date'];
     }
 
-    // Prepare room data and check booking status
     $room_data = [];
     foreach ($rooms as $room) {
         $room_id = $room->id;
         $room_images = get_room_pictures($room_id);
         $room_amenities = get_all_room_amenities($room_id);
 
-        // Convert image data to array
         $images = array_map(function($img) {
             return [
                 'url' => wp_get_attachment_url($img->image_id)
             ];
         }, $room_images);
 
-        // Convert amenity data to array
         $amenities = array_map(function($amenity) {
             return [
                 'name' => format_amenity_name($amenity),
@@ -475,7 +466,6 @@ function load_room_callback() {
             ];
         }, $room_amenities);
 
-        // Check if the room is booked
         if (isset($booked_rooms_map[$room->id])) {
             $is_booked = true;
             $next_available_date = date('Y-m-d', strtotime($booked_rooms_map[$room->id] . ' +1 day'));
@@ -484,7 +474,6 @@ function load_room_callback() {
             $next_available_date = null;
         }
 
-        // Add room data to response
         $room_data[] = [
             'id' => $room->id,
             'name' => $room->name,
@@ -501,15 +490,25 @@ function load_room_callback() {
         ];
     }
 
-    // Send the response
     wp_send_json_success([
         'rooms' => $room_data,
         'total_rooms' => $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}reservemate_rooms"),
     ]);
 }
 
+function get_filter_data() {
+    global $wpdb;
 
-// Enqueue script and pass AJAX URL and nonce
+    $amenities = $wpdb->get_results("SELECT id, amenity_name FROM {$wpdb->prefix}reservemate_amenities", ARRAY_A);
+
+    $room_sizes = $wpdb->get_results("SELECT DISTINCT size FROM {$wpdb->prefix}reservemate_rooms", ARRAY_A);
+
+    wp_send_json([
+        'amenities' => $amenities,
+        'room_sizes' => $room_sizes
+    ]);
+}
+
 function enqueue_my_scripts() {
     wp_enqueue_script('frontend-ajax-script', get_template_directory_uri() . '/js/frontend/script.js', array('jquery'));
     
@@ -519,6 +518,8 @@ function enqueue_my_scripts() {
     ));
 }
 
+add_action('wp_ajax_get_filter_data', 'get_filter_data');
+add_action('wp_ajax_nopriv_get_filter_data', 'get_filter_data');
 add_action('wp_enqueue_scripts', 'enqueue_my_scripts');
 add_action('wp_ajax_load_room', 'load_room_callback');
 add_action('wp_ajax_nopriv_load_room', 'load_room_callback');

@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentIndex = 0;
     let totalRooms = 0;
     let roomsData = [];
+    let filteredRoomsData = [];
     let touchstartX = 0;
     let touchstartY = 0;
     let touchendX = 0;
@@ -34,54 +35,141 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
-    
-    function setupLightbox(images) {
-        let currentImageIndex = 0;
-        const lightbox = document.getElementById('lightbox');
-        const lightboxImg = document.getElementById('lightbox-img');
-        const closeBtn = document.getElementById('lightbox-close');
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-        const lightBoxCounter = document.getElementById('lightbox-counter');
-    
-        const roomImages = document.querySelectorAll('.room-img');
-        roomImages.forEach((img, index) => {
-            img.addEventListener('click', () => {
-                currentImageIndex = index;
-                lightbox.style.display = "flex";
-                lightboxImg.src = img.src; // Show clicked image
-                lightBoxCounter.innerText = `${currentImageIndex + 1} / ${images.length}`;
+
+    function updatePriceDisplay(minValue, maxValue, priceValue) {
+        priceValue.textContent = `$${minValue} - $${maxValue}`;
+    }
+            
+    function setupFilters() {
+        const filterBtn = document.getElementById('filter-btn');
+        const resetFiltersBtn = document.getElementById('reset-filters');
+        const filterMenu = document.getElementById('filter-menu');
+        const closeModal = document.getElementById('close-modal');
+        const minPriceRange = document.getElementById('min-price-range');
+        const maxPriceRange = document.getElementById('max-price-range');
+        const minPriceDefault = parseInt(minPriceRange.value);
+        const maxPriceDefault = parseInt(maxPriceRange.value);
+        const priceValue = document.getElementById('price-range-display');
+        const roomSizeSelect = document.getElementById('room-size-select');
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        const priceDifference = 100;
+        
+        if (filterBtn) {
+            filterBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                fetchFilterData();
             });
+        }
+        
+        if (closeModal) {
+            closeModal.addEventListener('click', function() {
+                filterMenu.style.display = 'none'; 
+            });
+        }
+        
+        document.addEventListener('click', function(e) {
+            if (e.target == filterMenu) {
+                filterMenu.style.display = 'none';
+            }
+        });
+        
+        if (minPriceRange && maxPriceRange && priceValue) {
+            
+            minPriceRange.addEventListener('input', function () {
+                const minValue = parseInt(minPriceRange.value);
+                const maxValue = parseInt(maxPriceRange.value);
+                if (maxValue - minValue < priceDifference) {
+                    maxPriceRange.value = minValue + priceDifference;
+                }
+                updatePriceDisplay(minPriceRange.value, maxPriceRange.value, priceValue);
+            });
+    
+            maxPriceRange.addEventListener('input', function () {
+                const minValue = parseInt(minPriceRange.value);
+                const maxValue = parseInt(maxPriceRange.value);
+                if (maxValue - minValue < priceDifference) {
+                    minPriceRange.value = maxValue - priceDifference;
+                }
+                updatePriceDisplay(minPriceRange.value, maxPriceRange.value, priceValue);
+            });
+    
+        }
+    
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', function (e) {
+                e.preventDefault(); // Prevent form submission
+                const selectedAmenities = Array.from(document.querySelectorAll('input[name="amenities"]:checked')).map(cb => cb.value);
+                const selectedMinPrice = minPriceRange ? minPriceRange.value : null;
+                const selectedMaxPrice = maxPriceRange ? maxPriceRange.value : null;
+                const selectedMinRoomSize = roomSizeSelect ? roomSizeSelect.value : null;
+    
+                applyFilters(selectedMinPrice, selectedMaxPrice, selectedMinRoomSize, selectedAmenities);
+                filterMenu.style.display = 'none';
+            });
+        }
+        
+        if(resetFiltersBtn) {
+            resetFiltersBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                minPriceRange.value = minPriceDefault;
+                maxPriceRange.value = maxPriceDefault;
+                roomSizeSelect.value = 'none';
+                document.querySelectorAll('input[name="amenities"]:checked').forEach(cb => cb.checked = false);
+                applyFilters(null, null, 'none', []);
+                updatePriceDisplay(minPriceRange.value, maxPriceRange.value, priceValue);
+            });
+        }
+        
+    }
+    
+    function fetchFilterData() {
+        fetch(ajaxScript.ajaxurl + '?action=get_filter_data')
+            .then(response => response.json())
+            .then(data => {
+                const amenitiesContainer = document.getElementById('amenities-container');
+                amenitiesContainer.innerHTML = '';
+                
+                data.amenities.forEach(amenity => {
+                    const checkbox = `<label>
+                        <input type="checkbox" name="amenities" value="${amenity.id}">
+                        ${amenity.amenity_name}
+                    </label>`;
+                    amenitiesContainer.insertAdjacentHTML('beforeend', checkbox);
+                });
+
+                document.getElementById('filter-menu').style.display = 'block';
+            });
+    }
+    
+    function applyFilters(minPrice, maxPrice, minRoomSize, amenities) {
+        filteredRoomsData = roomsData.filter(room => {
+            const matchesPrice = parseInt(room.cost_per_day) >= parseInt(minPrice) && parseInt(room.cost_per_day) <= parseInt(maxPrice);
+            const matchesRoomSize = minRoomSize === 'none' || parseInt(room.size) >= parseInt(minRoomSize);
+            const matchesAmenities = amenities.length === 0 || amenities.every(amenity => room.amenities.includes(amenity));
+            return matchesPrice && matchesRoomSize && matchesAmenities;
         });
     
-        closeBtn.addEventListener('click', () => {
-            lightbox.style.display = "none";
-        });
-    
-        prevBtn.addEventListener('click', () => {
-            currentImageIndex = (currentImageIndex === 0) ? images.length - 1 : currentImageIndex - 1;
-            lightboxImg.src = images[currentImageIndex].url;
-            lightBoxCounter.innerText = `${currentImageIndex + 1} / ${images.length}`;
-        });
-    
-        nextBtn.addEventListener('click', () => {
-            currentImageIndex = (currentImageIndex === images.length - 1) ? 0 : currentImageIndex + 1;
-            lightboxImg.src = images[currentImageIndex].url;
-            lightBoxCounter.innerText = `${currentImageIndex + 1} / ${images.length}`;
-        });
+        currentIndex = 0;
+        renderRoom(currentIndex, filteredRoomsData);
+        updateNavigationButtons(filteredRoomsData);
     }
 
-    function renderRoom(index) {
+    function renderRoom(index, roomsArray = roomsData) {
         const roomsContainer = document.querySelector('#rooms-container');
+        
         if (roomsContainer) {
             roomsContainer.innerHTML = '';
         }
     
-        if (roomsData.length > 0 && index >= 0 && index < roomsData.length) {
-            const room = roomsData[index];
+        const dataToUse = filteredRoomsData.length > 0 ? filteredRoomsData : roomsData;
+        if (index >= 0 && index < dataToUse.length) {
+            const room = dataToUse[index];
+            const totalRooms = roomsArray.length || roomsData.length;
+            const currentRoomNumber = index + 1;
             const roomDiv = document.createElement('div');
             roomDiv.className = 'available-room active';
             roomDiv.innerHTML = `
+                <div id="room-counter"></div>
                 ${room.is_booked ? `
                     <div class="room-availability">
                         <span class="room-status">Booked, available from: <br /> ${room.next_available_date}</span>
@@ -140,10 +228,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 ${room.description ? `<div class="room-description"><p>${room.description}</p></div>` : ''}
             `;
             roomsContainer.appendChild(roomDiv);
-    
+            
             // Set up event listeners after rendering
             setupLightbox(room.images);
-    
+            
+            let roomCounter = document.querySelector('#room-counter');
+            
+            if (roomCounter) {
+                roomCounter.textContent = `${currentRoomNumber} / ${totalRooms}`;
+            }
+            
             // Set up booking form submission
             document.getElementById('book-now-button').addEventListener('click', function (e) {
                 e.preventDefault();
@@ -169,9 +263,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         amenitiesClickEvent();
     }
-
     
     function loadRoom(page) {
+        filteredRoomsData = [];
         const startDateElement = document.getElementById('select-room-start-date');
         const endDateElement = document.getElementById('select-room-end-date');
     
@@ -203,18 +297,71 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     
     loadRoom(0);
-    
-    navigationButtonsEventListener();
-    
 
     function updateNavigationButtons() {
+        const dataToUse = filteredRoomsData.length > 0 ? filteredRoomsData : roomsData;
         if(prevButton && nextButton) {
             prevButton.disabled = (currentIndex === 0);
-            nextButton.disabled = (currentIndex >= roomsData.length - 1);
+            nextButton.disabled = (currentIndex >= dataToUse.length - 1);
         }
     }
     
+    function navigationButtonsEventListener () {
+        if(nextButton && prevButton) {
+            nextButton.removeEventListener('click', handleNextButtonClick);
+            prevButton.removeEventListener('click', handlePrevButtonClick);
+    
+            nextButton.addEventListener('click', handleNextButtonClick);
+            prevButton.addEventListener('click', handlePrevButtonClick);
+        }
+    }
+    
+    function handleNextButtonClick(e) {
+        e.preventDefault();
+        const dataToUse = filteredRoomsData.length > 0 ? filteredRoomsData : roomsData;
+        if (currentIndex < dataToUse.length - 1) {
+            currentIndex++;
+            renderRoom(currentIndex, dataToUse);
+        }
+        updateNavigationButtons(); 
+    }
+    
+    function handlePrevButtonClick(e) {
+        e.preventDefault();
+        const dataToUse = filteredRoomsData.length > 0 ? filteredRoomsData : roomsData;
+        if (currentIndex > 0) {
+            currentIndex--;
+            renderRoom(currentIndex, dataToUse);
+        }
+        updateNavigationButtons();
+    }
+    
+    function initializeNavigation() {
+        updateNavigationButtons();
+        navigationButtonsEventListener();
+    }
+ 
+    initializeNavigation();
+    setupFilters();
+    
+    document.addEventListener('touchstart', function(e) {
+        touchstartX = e.changedTouches[0].screenX;
+        touchstartY = e.changedTouches[0].screenY;
+    }, false);
+    
+    document.addEventListener('touchend', function(e) {
+        touchendX = e.changedTouches[0].screenX;
+        touchendY = e.changedTouches[0].screenY;
+        handleGesture();
+    }, false);
+    
     function handleGesture() {
+        const lightbox = document.getElementById("lightbox");
+        
+        if (lightbox && lightbox.style.display === "flex") {
+            return;
+        }
+    
         const diffX = Math.abs(touchendX - touchstartX);
         const diffY = Math.abs(touchendY - touchstartY);
         
@@ -233,71 +380,86 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     
-    document.addEventListener('touchstart', function(e) {
-        touchstartX = e.changedTouches[0].screenX;
-        touchstartY = e.changedTouches[0].screenY;
-    }, false);
-    
-    document.addEventListener('touchend', function(e) {
-        touchendX = e.changedTouches[0].screenX;
-        touchendY = e.changedTouches[0].screenY;
-        handleGesture();
-    }, false);
-    
-    function navigationButtonsEventListener () {
-        if(nextButton && prevButton) {
-            nextButton.addEventListener('click', function() {
-                if (currentIndex < roomsData.length - 1) {
-                    currentIndex++;
-                    loadRoom(Math.floor(currentIndex / 20));
-                }
-                updateNavigationButtons();
-            });
-            
-            prevButton.addEventListener('click', function() {
-                if (currentIndex > 0) {
-                    currentIndex--;
-                    loadRoom(Math.floor(currentIndex / 20));
-                }
-                updateNavigationButtons();
-            });
-        }
+    function openLightbox(images, lightbox, lightboxImg, lightBoxCounter) {
+        lightbox.style.display = "flex";
+        lightboxImg.src = images[currentImageIndex].url;
+        lightBoxCounter.innerText = `${currentImageIndex + 1} / ${images.length}`;
     }
     
-    function openLightbox(index) {
-        roomImages = document.querySelectorAll('.room-img');
-        currentImageIndex = index;
-        document.getElementById("lightbox").style.display = "flex";
-        updateLightboxImage(roomImages, currentImageIndex);
-        document.body.classList.add('no-touch');
+    function closeLightbox(lightbox) {
+        lightbox.style.display = "none";
+    }
+        
+    function changeImage(direction, images, lightboxImg, lightBoxCounter) {
+        currentImageIndex = (currentImageIndex + direction + images.length) % images.length;
+        lightboxImg.src = images[currentImageIndex].url;
+        lightBoxCounter.innerText = `${currentImageIndex + 1} / ${images.length}`;
     }
     
-    function closeLightbox() {
-        document.getElementById("lightbox").style.display = "none";
-        document.body.classList.remove('no-touch');
-    }
-    
-    function changeImage(direction, currentImageIndex) {
-        roomImages = document.querySelectorAll('.room-img');
-        currentImageIndex += direction;
-    
-        if (currentImageIndex >= roomImages.length) {
-            currentImageIndex = 0; // loop back to first image
-        } else if (currentImageIndex < 0) {
-            currentImageIndex = roomImages.length - 1; // loop to last image
-        }
-    
-        updateLightboxImage(roomImages, currentImageIndex);
-    }
-    
-    function updateLightboxImage(roomImages, currentImageIndex = 0) {
-        const imageElement = roomImages[currentImageIndex];
-        const fullSizeImageUrl = imageElement.src; // assuming same src for full size
-        document.getElementById("lightbox-img").src = fullSizeImageUrl;
-
+    function setupLightbox(images) {
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+        const closeBtn = document.getElementById('lightbox-close');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
         const lightBoxCounter = document.getElementById('lightbox-counter');
-        lightBoxCounter.innerText = `${currentImageIndex + 1} / ${roomImages.length}`;
+        
+        const roomImages = document.querySelectorAll('.room-img');
+        roomImages.forEach((img, index) => {
+            img.addEventListener('click', () => {
+                currentImageIndex = index;
+                openLightbox(images, lightbox, lightboxImg, lightBoxCounter);
+            });
+        });
+    
+        closeBtn.addEventListener('click', () => closeLightbox(lightbox));
+    
+        prevBtn.addEventListener('click', () => changeImage(-1, images, lightboxImg, lightBoxCounter));
+    
+        nextBtn.addEventListener('click', () => changeImage(1, images, lightboxImg, lightBoxCounter));
+    
+        setupSwipeEvents(lightbox, images, lightboxImg, lightBoxCounter);
     }
+    
+    function setupSwipeEvents(lightbox, images, lightboxImg, lightBoxCounter) {
+        let touchstartX = 0;
+        let touchendX = 0;
+    
+        lightbox.addEventListener('touchstart', function(e) {
+            touchstartX = e.changedTouches[0].screenX;
+        }, false);
+    
+        lightbox.addEventListener('touchend', function(e) {
+            touchendX = e.changedTouches[0].screenX;
+            handleLightboxSwipe(touchstartX, touchendX, images, lightboxImg, lightBoxCounter);
+        }, false);
+    }
+    
+    function handleLightboxSwipe(touchstartX, touchendX, images, lightboxImg, lightBoxCounter) {
+        const diffX = touchendX - touchstartX;
+        if (Math.abs(diffX) > 10) {  // Minimal swipe distance
+            if (diffX > 0) {
+                changeImage(-1, images, lightboxImg, lightBoxCounter); // Swipe right (previous image)
+            } else {
+                changeImage(1, images, lightboxImg, lightBoxCounter);  // Swipe left (next image)
+            }
+        }
+    }
+    
+    function checkScrollPosition() {
+        const selectRoomForm = document.getElementById('select-room-form');
+        const formRect = selectRoomForm.getBoundingClientRect();
+        
+        if (formRect.bottom < 0 || formRect.top > window.innerHeight) {
+            prevButton.style.display = 'none';
+            nextButton.style.display = 'none';
+        } else {
+            prevButton.style.display = 'flex';
+            nextButton.style.display = 'flex';
+        }
+    }
+    
+    window.addEventListener('scroll', checkScrollPosition);
     
     
 });

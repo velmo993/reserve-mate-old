@@ -16,7 +16,7 @@ function add_admin_menu() {
     // Add "Settings" submenu under "Booking Settings"
     add_submenu_page(
         'booking-settings', 
-        'Settings',                   
+        'Settings',
         'Settings',                   
         'manage_options', 
         'booking-settings',           
@@ -88,6 +88,23 @@ function register_booking_settings() {
         'booking-settings',
         'general_settings'
     );
+    
+    add_settings_field(
+        'check-in-time',
+        'Check-In Time',
+        'display_check_in_time',
+        'booking-settings',
+        'general_settings'
+    );
+    
+    add_settings_field(
+        'check-out-time',
+        'Check-Out Time',
+        'display_check_out_time',
+        'booking-settings',
+        'general_settings'
+    );
+    
 }
 
 // The callback function for the "Settings" page
@@ -753,9 +770,9 @@ function sanitize_booking_settings($input) {
 
 function display_calendar_api_key_field() {
     $options = get_option('booking_settings');
-    $api_key = isset($options['calendar_api_key']) ? esc_textarea($options['calendar_api_key']) : '';
+    $api_key = isset($options['calendar_api_key']) ? esc_attr($options['calendar_api_key']) : '';
     ?>
-    <textarea name="booking_settings[calendar_api_key]" rows="10" cols="50"><?php echo $api_key; ?></textarea>
+    <input type="text" name="booking_settings[calendar_api_key]" value="<?php echo $api_key; ?>" class="regular-text">
     <?php
 }
 
@@ -793,6 +810,39 @@ function display_currency_field() {
     </select>
     <?php
 }
+
+function display_check_in_time() {
+    $options = get_option('booking_settings');
+    $checkin_time = isset($options['checkin_time']) ? esc_attr($options['checkin_time']) : '14:00';
+    
+    echo '<select name="booking_settings[checkin_time]">';
+    generate_time_options($checkin_time);
+    echo '</select>';
+}
+
+function display_check_out_time() {
+    $options = get_option('booking_settings');
+    $checkout_time = isset($options['checkout_time']) ? esc_attr($options['checkout_time']) : '12:00';
+    
+    echo '<select name="booking_settings[checkout_time]">';
+    generate_time_options($checkout_time);
+    echo '</select>';
+}
+
+function generate_time_options($selected_time) {
+    $times = [];
+    for ($i = 0; $i < 24; $i++) {
+        $hour = str_pad($i, 2, '0', STR_PAD_LEFT);
+        $times[] = "$hour:00";
+        $times[] = "$hour:30";
+    }
+
+    foreach ($times as $time) {
+        echo '<option value="' . esc_attr($time) . '"' . selected($selected_time, $time, false) . '>' . esc_html($time) . '</option>';
+    }
+}
+
+
 
 add_action('admin_menu', 'add_admin_menu');
 add_action('admin_init', 'register_booking_settings');
