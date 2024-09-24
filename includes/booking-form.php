@@ -1,41 +1,56 @@
 <?php
-// Prevent direct access
 defined('ABSPATH') or die('No script please!');
 
 require_once(plugin_dir_path(__FILE__) . 'google-calendar.php');
 
 function display_search_form() {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['adults'])) {
-        // Process the form submission
-        return handle_room_search();
+    $error_message = '';
+    
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (empty($_POST['start-date']) || empty($_POST['end-date'])) {
+            $error_message = 'Both Arrival and Departure dates are required.';
+        } elseif (!isset($_POST['adults'])) {
+            $error_message = 'Number of adults is required.';
+        } else {
+            return handle_room_search();
+        }
     }
+    
     ob_start();
     ?>
+    <?php if ($error_message): ?>
+        <div class="error-message" style="color: red;"><?php echo $error_message; ?></div>
+    <?php endif; ?>
+    
     <form id="search-room-form" method="post">
         <input type="hidden" name="action" value="search_rooms">
-        <label for="adults">Adults:</label>
-        <div class="form-field">
-            <input type="number" id="adults" name="adults" min="1" value="2" required>
-        </div>
-        
-        <label for="children">Children:</label>
-        <div class="form-field">
-            <input type="number" id="children" name="children" min="0" value="0" required>
-        </div>
-        
         <div>
-            <div class="date-picker">
+            <div class="form-field">
                 <label for="start-date">Arrival:</label>
                 <input type="text" id="start-date" name="start-date" required>
             </div>
         
-            <div class="date-picker">
+            <div class="form-field">
                 <label for="end-date">Departure:</label>
                 <input type="text" id="end-date" name="end-date" required>
             </div>
         </div>
-    
-        <input type="submit" value="Search Available Rooms">
+        
+        <div>
+            <div class="form-field">
+                <label for="adults">Adults:</label>
+                <input type="number" id="adults" name="adults" min="1" value="2" required>
+            </div>
+            
+            <div class="form-field">
+                <label for="children">Children:</label>
+                <input type="number" id="children" name="children" min="0" value="0" required>
+            </div>
+        </div>
+        
+        <div class="form-field">
+            <input type="submit" value="Search Rooms">
+        </div>
     </form>
 
     <?php
@@ -49,13 +64,27 @@ function handle_room_search() {
     $end_date = sanitize_text_field($_POST['end-date']);
     $options = get_option('booking_settings');
     $currency = get_currency();
+    $amenities = get_predefined_amenities();
 
     ob_start(); ?>
         <form method="post" id="select-room-form">
-            <button id="prev-room" disabled><i class="fa fa-caret-left"></i></button>
-            <button id="next-room"><i class="fa fa-caret-right"></i></button>
-            <button id="filter-btn"><i class="fa fa-filter"></i></button>
-            <button id="reset-filters"><i class="fa fa-redo"></i></button>
+            <button id="prev-room" disabled><i class="fa">&#xf0d9;</i></button>
+            <button id="next-room"><i class="fa">&#xf0da;</i></button>
+            <div class="filter-sort-controls">
+                <div id="filter-controls">
+                    <button id="filter-btn"><i class="fa">&#xf0b0;</i><span>Filter</span></button>
+                    <button id="reset-filters"><i class="fa">&#xe17b;</i><span>Reset</span></button>
+                </div>
+                <div id="sort-controls">
+                    <select id="sort-select">
+                        <option value="" disabled selected>⇅ Sort by</option>
+                        <option value="price-asc">Price ↑↑ </option>
+                        <option value="price-desc">Price ↓↓ </option>
+                        <option value="size-asc">Size ↑↑ </option>
+                        <option value="size-desc">Size ↓↓ </option> 
+                    </select>
+                </div>
+            </div>
             <div id="filter-menu" class="filter-modal">
                 <div class="filter-content">
                     <span id="close-modal">&times;</span>
@@ -340,9 +369,16 @@ function enqueue_custom_styles() {
     ?>
     <style>
 
+    i.fa {
+        font-family: 'Font Awesome\ 6 Free';
+        content: "\f061";
+        font-weight: 900;
+        font-style: inherit;
+    }
+    
     #search-room-form {
         max-width: 600px;
-        margin: 0 auto;
+        margin: auto;
         padding: 20px;
         border: 1px solid #ddd;
         border-radius: 8px;
@@ -388,13 +424,10 @@ function enqueue_custom_styles() {
     #search-room-form div {
         display: flex;
         padding-bottom: 1rem;
-    }
-    
-    #search-room-form div:not(:first-child) {
         margin: 0 auto;
     }
         
-    #search-room-form div .date-picker {
+    #search-room-form .form-field {
         width: 45%;
         display: flex;
         flex-direction: column;
@@ -404,9 +437,62 @@ function enqueue_custom_styles() {
         position: relative;
         max-width: 80%;
         margin: 0 auto;
-        padding: 1rem 0;
-        border: 1px solid #ddd;
-        border-radius: 8px;
+    }
+    
+    .filter-sort-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 2rem 0.2rem;
+    }
+    
+    .filter-sort-controls button,
+    .filter-sort-controls select {
+        height: 40px;
+        padding: 0 10px;
+        font-size: 16px;
+        border-radius: 4px;
+    }
+    
+    .filter-sort-controls select {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-color: #fff;
+        border: 1px solid #ccc;
+    }
+    
+    #sort-select {
+        width: 8rem;
+        margin-right: 0.5rem;
+        font-size: 1em;
+    }
+    
+    #filter-controls {
+        display: flex;
+        width: 50%;
+    }
+    
+    #filter-btn {
+        display: flex;
+        align-items: center; 
+        justify-content: center;
+        width: 45%;
+        margin-left: 0.5rem;
+    }
+    
+    #filter-btn span,
+    #reset-filters span {
+        margin-left: 5px;
+    }
+    
+    #reset-filters {
+        display: flex;
+        align-items: center; 
+        justify-content: center;
+        background: gray;
+        margin-left: 0.5rem;
+        width: 45%;
     }
     
     #select-room-form .form-wrap {
@@ -441,14 +527,6 @@ function enqueue_custom_styles() {
     #next-room i {
         font-size: 3rem;
         color: #000;
-    }
-    
-    #filter-btn {
-        margin-left: 1.4rem;    
-    }
-    
-    #reset-filters {
-        background: gray;
     }
 
     #select-room-form .form-wrap .available-room {
@@ -732,62 +810,60 @@ function enqueue_custom_styles() {
     }
     
     
-        /* General styling for range sliders */
     input[type="range"] {
-        -webkit-appearance: none; /* Remove default styling */
-        width: 100%; /* Full width */
-        background: #ddd; /* Background color */
-        border-radius: 5px; /* Rounded corners */
-        outline: none; /* Remove outline */
+        -webkit-appearance: none;
+        width: 100%;
+        background: #ddd;
+        border-radius: 5px;
+        outline: none;
         margin: 0;
         padding: 0.2rem 0.4rem;
     }
     
     /* Thumb (the draggable part) styling */
     input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none; /* Remove default styling */
+        -webkit-appearance: none; 
         appearance: none;
-        width: 1px; /* Increase thumb width */
-        height: 25px; /* Increase thumb height */
-        
-        background: #4CAF50; /* Thumb color */
-        border-radius: 40%; /* Round thumb */
-        cursor: pointer; /* Pointer on hover */
+        width: 1px;
+        height: 25px;
+        background: #4CAF50;
+        border-radius: 40%;
+        cursor: pointer;
     }
     
     input[type="range"]::-moz-range-thumb {
-        width: 1px; /* Increase thumb width */
-        height: 25px; /* Increase thumb height */
+        width: 1px;
+        height: 25px;
         
-        background: #4CAF50; /* Thumb color */
-        border-radius: 40%; /* Round thumb */
-        cursor: pointer; /* Pointer on hover */
+        background: #4CAF50;
+        border-radius: 40%;
+        cursor: pointer;
     }
     
     /* For Firefox */
     input[type="range"]::-ms-thumb {
-        width: 1px; /* Increase thumb width */
-        height: 25px; /* Increase thumb height */
+        width: 1px;
+        height: 25px;
         
-        background: #4CAF50; /* Thumb color */
-        border-radius: 40%; /* Round thumb */
-        cursor: pointer; /* Pointer on hover */
+        background: #4CAF50;
+        border-radius: 40%;
+        cursor: pointer;
     }
     
-    /* Optional: Styling for the track */
+    /* Styling for the track */
     input[type="range"]::-webkit-slider-runnable-track {
-        background: #ddd; /* Background for the track */
-        border-radius: 5px; /* Rounded corners */
+        background: #ddd;
+        border-radius: 5px;
     }
     
     input[type="range"]::-moz-range-track {
-        background: #ddd; /* Background for the track */
-        border-radius: 5px; /* Rounded corners */
+        background: #ddd;
+        border-radius: 5px;
     }
     
     input[type="range"]::-ms-track {
-        background: #ddd; /* Background for the track */
-        border-radius: 5px; /* Rounded corners */
+        background: #ddd;
+        border-radius: 5px;
     }
     
     /* Hide default input styles for Internet Explorer */
@@ -818,9 +894,9 @@ function enqueue_custom_styles() {
 
     .filter-content {
         background-color: #fff;
-        height: 80%;
+        height: 85%;
         margin-top: 140px;
-        margin: 15% auto;
+        margin: auto;
         padding: 20px;
         border-radius: 10px;
         width: 90%;
@@ -954,6 +1030,14 @@ function enqueue_custom_styles() {
         
         #select-room-form .room-img:nth-child(n+3) {
             display: none;
+        }
+        
+        .filter-sort-controls {
+            padding-bottom: 0.2rem;
+        }
+        
+        .filter-content {
+            height: 80%
         }
         
     }

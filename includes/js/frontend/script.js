@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function () {
     let touchstartY = 0;
     let touchendX = 0;
     let touchendY = 0;
-    var rooms = document.querySelectorAll('.single-room-container .available-room');
     var prevButton = document.getElementById('prev-room');
     var nextButton = document.getElementById('next-room');
         
@@ -39,6 +38,40 @@ document.addEventListener('DOMContentLoaded', function () {
     function updatePriceDisplay(minValue, maxValue, priceValue) {
         priceValue.textContent = `$${minValue} - $${maxValue}`;
     }
+    
+    function truncateText(text, wordLimit) {
+        const words = text.split(' ');
+        if (words.length > wordLimit) {
+            return words.slice(0, wordLimit).join(' ') + '...';
+        }
+        return text;
+    }
+    
+    function toggleDescription(event, link) {
+        event.preventDefault();
+        
+        const roomDescription = link.closest('.room-description');
+        const shortDescription = roomDescription.querySelector('.short-description');
+        const fullDescription = roomDescription.querySelector('.full-description');
+    
+        if (shortDescription.style.display === 'none') {
+            shortDescription.style.display = 'block';
+            fullDescription.style.display = 'none';
+            link.textContent = 'More';
+            const selectRoomForm = document.querySelector('#select-room-form');
+            const formPosition = selectRoomForm.getBoundingClientRect().top + window.pageYOffset;
+            const scrollOffset = -50;
+    
+            window.scrollTo({
+                top: formPosition + scrollOffset,
+                behavior: 'smooth'
+            });
+        } else {
+            shortDescription.style.display = 'none';
+            fullDescription.style.display = 'block';
+            link.textContent = 'Less';
+        }
+    }
             
     function setupFilters() {
         const filterBtn = document.getElementById('filter-btn');
@@ -47,8 +80,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const closeModal = document.getElementById('close-modal');
         const minPriceRange = document.getElementById('min-price-range');
         const maxPriceRange = document.getElementById('max-price-range');
-        const minPriceDefault = parseInt(minPriceRange.value);
-        const maxPriceDefault = parseInt(maxPriceRange.value);
+        const minPriceDefault = minPriceRange ? parseInt(minPriceRange.value) : 0;
+        const maxPriceDefault = maxPriceRange ? parseInt(maxPriceRange.value) : 0;
         const priceValue = document.getElementById('price-range-display');
         const roomSizeSelect = document.getElementById('room-size-select');
         const applyFiltersBtn = document.getElementById('apply-filters');
@@ -97,7 +130,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
         if (applyFiltersBtn) {
             applyFiltersBtn.addEventListener('click', function (e) {
-                e.preventDefault(); // Prevent form submission
+                e.preventDefault();
                 const selectedAmenities = Array.from(document.querySelectorAll('input[name="amenities"]:checked')).map(cb => cb.value);
                 const selectedMinPrice = minPriceRange ? minPriceRange.value : null;
                 const selectedMaxPrice = maxPriceRange ? maxPriceRange.value : null;
@@ -131,22 +164,34 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 data.amenities.forEach(amenity => {
                     const checkbox = `<label>
-                        <input type="checkbox" name="amenities" value="${amenity.id}">
+                        <input type="checkbox" name="amenities" value="${amenity.amenity_name}">
                         ${amenity.amenity_name}
                     </label>`;
                     amenitiesContainer.insertAdjacentHTML('beforeend', checkbox);
                 });
-
-                document.getElementById('filter-menu').style.display = 'block';
+    
+                document.getElementById('filter-menu').style.display = 'flex';
             });
     }
     
-    function applyFilters(minPrice, maxPrice, minRoomSize, amenities) {
+    function applyFilters(minPrice, maxPrice, minRoomSize, selectedAmenities) {
         filteredRoomsData = roomsData.filter(room => {
-            const matchesPrice = parseInt(room.cost_per_day) >= parseInt(minPrice) && parseInt(room.cost_per_day) <= parseInt(maxPrice);
+            const matchesPrice = (!minPrice || parseInt(room.cost_per_day) >= parseInt(minPrice)) && 
+                                 (!maxPrice || parseInt(room.cost_per_day) <= parseInt(maxPrice));
+    
             const matchesRoomSize = minRoomSize === 'none' || parseInt(room.size) >= parseInt(minRoomSize);
-            const matchesAmenities = amenities.length === 0 || amenities.every(amenity => room.amenities.includes(amenity));
+    
+            const matchesAmenities = selectedAmenities.length === 0 || selectedAmenities.every(selectedAmenity => {
+                return room.amenities.some(roomAmenity => roomAmenity.name === selectedAmenity);
+            });
+    
             return matchesPrice && matchesRoomSize && matchesAmenities;
+        });
+    
+        filteredRoomsData.sort((a, b) => {
+            if (a.is_booked && !b.is_booked) return 1;
+            if (!a.is_booked && b.is_booked) return -1;
+            return 0;
         });
     
         currentIndex = 0;
@@ -157,11 +202,16 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderRoom(index, roomsArray = roomsData) {
         const roomsContainer = document.querySelector('#rooms-container');
         
+        const dataToUse = (filteredRoomsData.length > 0 ? filteredRoomsData : roomsData).sort((a, b) => {
+            if (a.is_booked && !b.is_booked) return 1;
+            if (!a.is_booked && b.is_booked) return -1;
+            return 0;
+        });
+        
         if (roomsContainer) {
             roomsContainer.innerHTML = '';
         }
     
-        const dataToUse = filteredRoomsData.length > 0 ? filteredRoomsData : roomsData;
         if (index >= 0 && index < dataToUse.length) {
             const room = dataToUse[index];
             const totalRooms = roomsArray.length || roomsData.length;
@@ -225,11 +275,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         </ul>
                     </div>
                 ` : ''}
-                ${room.description ? `<div class="room-description"><p>${room.description}</p></div>` : ''}
+                ${room.description ? `
+                    <div class="room-description">
+                        <p class="short-description">${truncateText(room.description, 20)}</p>
+                        <p class="full-description" style="display: none;">${room.description}</p>
+                        <a href="#" class="read-more">More</a>
+                    </div>
+                ` : ''}
             `;
             roomsContainer.appendChild(roomDiv);
-            
-            // Set up event listeners after rendering
+        
             setupLightbox(room.images);
             
             let roomCounter = document.querySelector('#room-counter');
@@ -238,7 +293,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 roomCounter.textContent = `${currentRoomNumber} / ${totalRooms}`;
             }
             
-            // Set up booking form submission
             document.getElementById('book-now-button').addEventListener('click', function (e) {
                 e.preventDefault();
                 roomsContainer.remove();
@@ -260,8 +314,20 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.querySelector('input[type="submit"]').disabled = true;
                 });
             });
+            
+            const readMoreLink = roomDiv.querySelector('.read-more');
+            if (readMoreLink) {
+                readMoreLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    toggleDescription(e, readMoreLink);
+                });
+            }
         }
         amenitiesClickEvent();
+        initSortingButtons();
+        if(!prevButton.style.display === "none") {
+            window.addEventListener('scroll', checkScrollPosition);
+        }
     }
     
     function loadRoom(page) {
@@ -367,12 +433,10 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (diffX > diffY) {
             if (touchendX < touchstartX && currentIndex < totalRooms - 1) {
-                // Swipe left
                 currentIndex++;
                 loadRoom(Math.floor(currentIndex / 20));
             }
             if (touchendX > touchstartX && currentIndex > 0) {
-                // Swipe right
                 currentIndex--;
                 loadRoom(Math.floor(currentIndex / 20));
             }
@@ -437,11 +501,11 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function handleLightboxSwipe(touchstartX, touchendX, images, lightboxImg, lightBoxCounter) {
         const diffX = touchendX - touchstartX;
-        if (Math.abs(diffX) > 10) {  // Minimal swipe distance
+        if (Math.abs(diffX) > 10) {
             if (diffX > 0) {
-                changeImage(-1, images, lightboxImg, lightBoxCounter); // Swipe right (previous image)
+                changeImage(-1, images, lightboxImg, lightBoxCounter);
             } else {
-                changeImage(1, images, lightboxImg, lightBoxCounter);  // Swipe left (next image)
+                changeImage(1, images, lightboxImg, lightBoxCounter);
             }
         }
     }
@@ -459,7 +523,39 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     
-    window.addEventListener('scroll', checkScrollPosition);
+    function initSortingButtons() {
+        document.getElementById('sort-select').addEventListener('change', (e) => {
+            const value = e.target.value;
+            const [criteria, order] = value.split('-');
+            sortRooms(criteria, order);
+        });
+    }
+    
+    function sortRooms(criteria, order) {
+        let dataToUse = filteredRoomsData.length > 0 ? filteredRoomsData : roomsData;
+    
+        dataToUse.sort((a, b) => {
+            let valueA, valueB;
+            if (criteria === 'price') {
+                valueA = a.cost_per_day;
+                valueB = b.cost_per_day;
+            } else if (criteria === 'size') {
+                valueA = a.size;
+                valueB = b.size;
+            }
+    
+            if (order === 'asc') {
+                return valueA - valueB;
+            } else if (order === 'desc') {
+                return valueB - valueA;
+            }
+        });
+    
+        dataToUse = dataToUse.sort((a, b) => a.is_booked - b.is_booked);
+        currentIndex = 0;
+        renderRoom(currentIndex, dataToUse);
+        updateNavigationButtons();
+    }
     
     
 });
