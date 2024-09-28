@@ -1,2 +1,3 @@
 /includes/google-api-client/*
 /includes/credentials.json
+/includes/stripe/*

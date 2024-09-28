@@ -271,8 +271,8 @@ function initialize_date_picker() {
         
         let endDate = document.getElementById('end-date');
         let startDate = document.getElementById('start-date');
-        endDate ? endDate.setAttribute('placeholder', 'Select Departure Date') : '';
-        startDate ? startDate.setAttribute('placeholder', 'Select Arrival Date') : '';
+        endDate ? endDate.setAttribute('placeholder', 'Departure Date') : '';
+        startDate ? startDate.setAttribute('placeholder', 'Arrival Date') : '';
         
         flatpickr("#start-date", {
             dateFormat: "Y-m-d",
@@ -509,7 +509,7 @@ function get_filter_data() {
     ]);
 }
 
-function enqueue_my_scripts() {
+function enqueue_ajax_scripts() {
     wp_enqueue_script('frontend-ajax-script', get_template_directory_uri() . '/js/frontend/script.js', array('jquery'));
     
     wp_localize_script('frontend-ajax-script', 'ajaxScript', array(
@@ -518,9 +518,20 @@ function enqueue_my_scripts() {
     ));
 }
 
+function enqueue_stripe_scripts() {
+    wp_enqueue_script('stripe-js', 'https://js.stripe.com/v3/', [], null, true);
+    wp_enqueue_script('stripe-payment', plugin_dir_url(__FILE__) . 'includes/js/stripe/stripe-payment.js', ['stripe-js'], null, true);
+    
+    $stripe_public_key = get_option('payment_settings')['stripe_public_key'];
+    wp_localize_script('stripe-payment', 'stripe_vars', [
+        'stripePublicKey' => $stripe_public_key,
+        'pluginDir' => plugin_dir_url(__FILE__)
+    ]);
+}
+
 add_action('wp_ajax_get_filter_data', 'get_filter_data');
 add_action('wp_ajax_nopriv_get_filter_data', 'get_filter_data');
-add_action('wp_enqueue_scripts', 'enqueue_my_scripts');
+add_action('wp_enqueue_scripts', 'enqueue_ajax_scripts');
 add_action('wp_ajax_load_room', 'load_room_callback');
 add_action('wp_ajax_nopriv_load_room', 'load_room_callback');
 add_action('init', 'create_booking_post_type');
@@ -532,6 +543,7 @@ add_action('wp_ajax_get_room_images', 'ajax_get_room_images');
 add_action('wp_ajax_delete_room_image', 'ajax_delete_room_image');
 add_action('wp_ajax_fetch_amenities', 'ajax_fetch_amenities');
 add_action('wp_footer', 'initialize_date_picker');
+add_action('wp_enqueue_scripts', 'enqueue_stripe_scripts');
 
 register_activation_hook(__FILE__, 'create_amenities_table');
 register_activation_hook(__FILE__, 'create_rooms_table');

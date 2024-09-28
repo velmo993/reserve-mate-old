@@ -2,6 +2,7 @@
 defined('ABSPATH') or die('No script please!');
 
 require_once(plugin_dir_path(__FILE__) . 'google-calendar.php');
+require_once(plugin_dir_path(__FILE__) . 'payments.php');
 
 function display_search_form() {
     $error_message = '';
@@ -26,12 +27,12 @@ function display_search_form() {
         <input type="hidden" name="action" value="search_rooms">
         <div>
             <div class="form-field">
-                <label for="start-date">Arrival:</label>
+                <label for="start-date">Check In:</label>
                 <input type="text" id="start-date" name="start-date" required>
             </div>
         
             <div class="form-field">
-                <label for="end-date">Departure:</label>
+                <label for="end-date">Check Out:</label>
                 <input type="text" id="end-date" name="end-date" required>
             </div>
         </div>
@@ -67,7 +68,7 @@ function handle_room_search() {
     $amenities = get_predefined_amenities();
 
     ob_start(); ?>
-        <form method="post" id="select-room-form">
+        <form method="post" id="select-room-form" action="" enctype="multipart/form-data">
             <button id="prev-room" disabled><i class="fa">&#xf0d9;</i></button>
             <button id="next-room"><i class="fa">&#xf0da;</i></button>
             <div class="filter-sort-controls">
@@ -126,6 +127,7 @@ function handle_room_search() {
                 <input type="hidden" name="select-room-children" id="select-room-children" value="<?php echo esc_attr($children); ?>">
                 <input type="hidden" name="select-room-start-date" id="select-room-start-date" value="<?php echo esc_attr($start_date); ?>">
                 <input type="hidden" name="select-room-end-date" id="select-room-end-date" value="<?php echo esc_attr($end_date); ?>">
+                <input type="hidden" name="stripeToken" id="stripeToken" value="">
                 
                 <div id="rooms-container"></div>
                 
@@ -136,7 +138,6 @@ function handle_room_search() {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id']) && isset($_POST['name'])) {
-    
     $room_id = sanitize_text_field($_POST['room-id']);
     $name = sanitize_text_field($_POST['name']);
     $email = sanitize_email($_POST['email']);
@@ -151,13 +152,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id']) && isset($
     $days_booked = $interval->days;
     $cost_per_day = get_room_cost($room_id);
     $total_cost = $days_booked * floatval($cost_per_day);
-
-    save_booking_to_db($room_id, $name, $email, $phone, $adults, $children, $start_date, $end_date, $total_cost, 0);
-
-    save_booking_to_calendar($room_id, $adults, $children, $start_date, $end_date, $name, $email);
+    $currency = get_currency_code();
     
-    header('Location: ' . add_query_arg('booking_status', 'success', $_SERVER['REQUEST_URI']));
-    exit;
+    if (isset($_POST['stripeToken'])) {
+        $payment_result = process_payment($_POST, $total_cost, $currency);
+
+        if ($payment_result['success']) {
+            save_booking_to_db($room_id, $name, $email, $phone, $adults, $children, $start_date, $end_date, $total_cost, (int)1);
+            save_booking_to_calendar($room_id, $adults, $children, $start_date, $end_date, $name, $email);
+            echo json_encode(['success' => true, 'redirect_url' => 'success-page.php']);
+        } else {
+            echo json_encode(['success' => false, 'error' => $payment_result['message']]);
+        }
+        exit;
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Stripe token not received.']);
+        exit;
+    }
 }
 
 if (isset($_GET['booking_status']) && $_GET['booking_status'] === 'success') {
@@ -178,7 +189,7 @@ function save_booking_to_db($room_id, $name, $email, $phone, $adults, $children,
             'start_date' => $start_date,
             'end_date' => $end_date,
             'total_cost' => $total_cost,
-            'paid' => 0,
+            'paid' => $paid,
         ),
         array(
             '%d',  // room_id
@@ -436,7 +447,12 @@ function enqueue_custom_styles() {
     #select-room-form {
         position: relative;
         max-width: 80%;
-        margin: 0 auto;
+        margin: 3rem auto;
+    }
+    
+    #select-room-form .form-field,
+    #select-room-form .form-group {
+        padding: 1rem;
     }
     
     .filter-sort-controls {
@@ -606,7 +622,7 @@ function enqueue_custom_styles() {
     #select-room-form .form-wrap div input[type="text"],
     #select-room-form .form-wrap div input[type="email"],
     #select-room-form .form-wrap div input[type="tel"] {
-        width: calc(100% - 22px);
+        width: 100%;
         padding: 10px 20px;
         border: 1px solid #ccc;
         border-radius: 4px;
@@ -621,6 +637,7 @@ function enqueue_custom_styles() {
         border: none;
         padding: 12px 20px;
         margin-top: 20px;
+        margin-left: 1rem;
         border-radius: 4px;
         cursor: pointer;
         font-size: 16px;
@@ -932,8 +949,17 @@ function enqueue_custom_styles() {
     #room-counter {
         text-align: center;
     }
+
     
-    
+    /********* Stripe  ************/
+    #card-element {
+        padding: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        width: 100%;
+        box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+        background: var(--ast-comment-inputs-background);
+    }
     
     
     /****************************  Mobile devices (below 768px) ******************************************/

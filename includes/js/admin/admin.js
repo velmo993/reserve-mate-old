@@ -25,7 +25,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const target = this.getAttribute('data-target');
                 document.querySelector(target).classList.add('active');
     
-                // Store the active tab in localStorage
                 localStorage.setItem('activeTab', target);
             });
         });

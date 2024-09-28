@@ -22,6 +22,16 @@ function add_admin_menu() {
         'booking-settings',           
         'booking_settings_page'       
     );
+    
+    // Add "Payment Settings" submenu under "Settings"
+    add_submenu_page(
+        'booking-settings', 
+        'Payment Settings', 
+        'Payment Settings', 
+        'manage_options', 
+        'payment-settings', 
+        'payment_settings_page'
+    );
 
     // Add "Manage Rooms" submenu under "Booking Settings"
     add_submenu_page(
@@ -107,6 +117,36 @@ function register_booking_settings() {
     
 }
 
+// Register and display payment settings
+function register_payment_settings() {
+    register_setting('payment_settings_group', 'payment_settings', array(
+        'sanitize_callback' => 'sanitize_payment_settings'
+    ));
+
+    add_settings_section(
+        'stripe_settings',
+        'Stripe Settings',
+        null,
+        'payment-settings'
+    );
+
+    add_settings_field(
+        'stripe_secret_key',
+        'Stripe Secret Key',
+        'display_stripe_secret_key_field',
+        'payment-settings',
+        'stripe_settings'
+    );
+
+    add_settings_field(
+        'stripe_public_key',
+        'Stripe Public Key',
+        'display_stripe_public_key_field',
+        'payment-settings',
+        'stripe_settings'
+    );
+}
+
 // The callback function for the "Settings" page
 function booking_settings_page() {
     ?>
@@ -124,6 +164,42 @@ function booking_settings_page() {
         </form>
     </div>
     <?php
+}
+
+function payment_settings_page() {
+    ?>
+    <div class="wrap">
+        <h1>Payment Settings</h1>
+        <form method="post" action="options.php">
+            <?php
+            settings_fields('payment_settings_group');
+            do_settings_sections('payment-settings');
+            submit_button();
+            ?>
+        </form>
+    </div>
+    <?php
+}
+
+function display_stripe_secret_key_field() {
+    $options = get_option('payment_settings');
+    ?>
+    <input type="text" name="payment_settings[stripe_secret_key]" value="<?php echo isset($options['stripe_secret_key']) ? esc_attr($options['stripe_secret_key']) : ''; ?>" class="regular-text">
+    <?php
+}
+
+function display_stripe_public_key_field() {
+    $options = get_option('payment_settings');
+    ?>
+    <input type="text" name="payment_settings[stripe_public_key]" value="<?php echo isset($options['stripe_public_key']) ? esc_attr($options['stripe_public_key']) : ''; ?>" class="regular-text">
+    <?php
+}
+
+function sanitize_payment_settings($input) {
+    $new_input = array();
+    $new_input['stripe_secret_key'] = sanitize_text_field($input['stripe_secret_key']);
+    $new_input['stripe_public_key'] = sanitize_text_field($input['stripe_public_key']);
+    return $new_input;
 }
 
 function manage_rooms_page() {
@@ -284,7 +360,7 @@ function render_tabs() {
     <div class="wrap">
         <h1>Manage Rooms</h1>
         <div class="tabs">
-            <button class="tab-button active" data-target="#add-room-tab">Add a New Room</button>
+            <button class="tab-button active" data-target="#add-room-tab">Add New Room</button>
             <button class="tab-button" data-target="#existing-rooms-tab">Existing Rooms</button>
             <button class="tab-button" data-target="#manage-amenities-tab">Manage Amenities</button>
         </div>
@@ -295,7 +371,7 @@ function render_tabs() {
 function render_add_room_form($currency_symbol) {
     ?>
     <div id="add-room-tab" class="tab-content active">
-        <h2>Add a New Room</h2>
+        <h2>Add New Room</h2>
         <form method="post" enctype="multipart/form-data">
             <input type="hidden" name="room_id" id="room-id">
             <table class="form-table">
@@ -592,7 +668,6 @@ function display_manage_bookings_page() {
     <?php
 }
 
-// Handle file upload
 function upload_room_image($file) {
     require_once(ABSPATH . 'wp-admin/includes/file.php');
     $upload = wp_handle_upload($file, array('test_form' => false));
@@ -717,6 +792,13 @@ function get_currency() {
         $c_symbol = '¥';
     }
     return sanitize_text_field($c_symbol);
+}
+
+function get_currency_code() {
+    $options = get_option('booking_settings');
+    $currency = isset($options['currency']) ? $options['currency'] : 'USD';
+
+    return strtolower(sanitize_text_field($currency));
 }
 
 function fix_json($raw_json) {
@@ -846,4 +928,5 @@ function generate_time_options($selected_time) {
 
 add_action('admin_menu', 'add_admin_menu');
 add_action('admin_init', 'register_booking_settings');
+add_action('admin_init', 'register_payment_settings');
 

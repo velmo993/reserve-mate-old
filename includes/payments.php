@@ -1,21 +1,34 @@
 <?php
-// Prevent direct access
 defined('ABSPATH') or die('No script please!');
 
-function process_payment($booking_details) {
-    // Example for Stripe integration
-    \Stripe\Stripe::setApiKey(get_option('booking_settings')['stripe_secret_key']);
+require_once plugin_dir_path(__FILE__) . 'stripe/init.php';
+
+use Stripe\Stripe;
+use Stripe\Charge;
+
+function process_payment($details, $total_cost, $currency) {
+    \Stripe\Stripe::setApiKey(get_option('payment_settings')['stripe_secret_key']);
+
+    if (empty($details['stripeToken']) || !is_numeric($total_cost) || $total_cost <= 0) {
+        return ['success' => false, 'message' => 'Invalid payment details.'];
+    }
 
     try {
         $charge = \Stripe\Charge::create([
-            'amount' => $booking_details['amount'],
-            'currency' => 'usd',
-            'description' => 'Booking Payment',
-            'source' => $booking_details['source'],
+            'amount' => intval($total_cost * 100), // Amount in cents
+            'currency' => $currency,
+            'source' => $details['stripeToken'],
+            'description' => 'Room booking payment',
         ]);
-        return $charge;
+        return ['success' => true];
+    } catch (\Stripe\Exception\CardException $e) {
+        error_log('Card error: ' . $e->getMessage());
+        return ['success' => false, 'message' => $e->getMessage()];
+    } catch (\Stripe\Exception\ApiErrorException $e) {
+        error_log('Stripe API error: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Payment failed. Please try again.'];
     } catch (Exception $e) {
-        error_log('Payment failed: ' . $e->getMessage());
-        return false;
+        error_log('Unexpected error: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'An unexpected error occurred.'];
     }
 }

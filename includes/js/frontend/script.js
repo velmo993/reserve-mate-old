@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let touchstartY = 0;
     let touchendX = 0;
     let touchendY = 0;
+    var rooms = document.querySelectorAll('.single-room-container .available-room');
     var prevButton = document.getElementById('prev-room');
     var nextButton = document.getElementById('next-room');
         
@@ -299,20 +300,43 @@ document.addEventListener('DOMContentLoaded', function () {
                 prevButton.style.display = "none";
                 nextButton.style.display = "none";
                 const bookingForm = document.createElement('div');
+                
                 bookingForm.innerHTML = `
                     <input type="hidden" name="room-id" id="room-id" value="${room.id}">
-                    <label for="name">Name:</label>
-                    <input type="text" id="name" name="name" required>
-                    <label for="email">Email Address:</label>
-                    <input type="email" id="email" name="email" required>
-                    <label for="phone">Phone Number:</label>
-                    <input type="tel" id="phone" name="phone" required>
-                    <input type="submit" value="Book Selected Room">`;
+                    <div class="form-field">
+                        <label for="name">Name:</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="phone">Phone:</label>
+                        <input type="tel" id="phone" name="phone" required>
+                    </div>
+                
+                    <!-- Payment details -->
+                    <div class="form-group">
+                        <label for="card-element">Credit or debit card</label>
+                        <div id="card-element" class="form-control">
+                          <!-- A Stripe Element will be inserted here. -->
+                        </div>
+                    </div>
+                
+                    <div id="card-errors" role="alert"></div>
+                
+                    <input type="submit" id="submit-booking" value="Book Selected Room">
+                `;
+                
+                    
                 let selectRoomForm = document.querySelector('#select-room-form .form-wrap');
-                selectRoomForm.appendChild(bookingForm);
-                document.getElementById('select-room-form').addEventListener('submit', function () {
-                    document.querySelector('input[type="submit"]').disabled = true;
-                });
+                    if (selectRoomForm) {
+                        selectRoomForm.appendChild(bookingForm);
+                        
+                        const event = new Event('stripeFormRendered');
+                        document.dispatchEvent(event);
+                    }
             });
             
             const readMoreLink = roomDiv.querySelector('.read-more');
@@ -354,7 +378,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             console.log('No rooms found.');
                         }
                     })
-                    .catch(error => console.error('Error loading room:', error));
+                    .catch(error => {
+                        console.error('Error loading room:');
+                    });
             } else {
                 renderRoom(currentIndex);
                 updateNavigationButtons();
