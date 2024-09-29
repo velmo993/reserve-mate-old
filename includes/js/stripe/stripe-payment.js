@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function initializeStripe() {
         const cardElement = document.querySelector('#card-element');
         if (!cardElement) {
-            console.log('#card-element not found yet. Waiting for form to render...');
             return;
         }
 

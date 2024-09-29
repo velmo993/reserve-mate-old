@@ -212,6 +212,114 @@ document.addEventListener('DOMContentLoaded', function () {
 
         return daysBooked;
     }
+    
+    function personalDetailsForm(roomId) {
+        const bookingForm = document.createElement('div');
+        bookingForm.innerHTML = `
+            <input type="hidden" name="room-id" id="room-id" value="${roomId}">
+            <div class="form-field">
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-field">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-field">
+                <label for="phone">Phone:</label>
+                <input type="tel" id="phone" name="phone" required>
+            </div>
+            <input type="submit" id="proceed-to-checkout" value="Proceed To Checkout">
+        `;
+        return bookingForm;
+    }
+    
+    function renderPaymentForm(room) {
+        const paymentForm = document.createElement('div');
+        paymentForm.innerHTML = `
+            <div class="form-group">
+                <label>Choose Payment Method:</label>
+                <div class="payment-methods">
+                    <button type="button" class="payment-button" data-method="stripe">Credit Card (Stripe)</button>
+                    <button type="button" class="payment-button" data-method="paypal">PayPal</button>
+                    <!-- Add more buttons for other payment methods if needed -->
+                </div>
+            </div>
+            <div id="payment-details"></div>
+        `;
+    
+        let selectRoomForm = document.querySelector('#select-room-form .form-wrap');
+        if (selectRoomForm) {
+            selectRoomForm.appendChild(paymentForm);
+    
+            let stripeFormCreated = false;
+            let payPalFormCreated = false;
+    
+            paymentForm.addEventListener('click', function (e) {
+                if (e.target.classList.contains('payment-button')) {
+                    const selectedMethod = e.target.getAttribute('data-method');
+                    const paymentDetails = document.getElementById('payment-details');
+    
+                    if (selectedMethod === 'stripe') {
+                        if (!stripeFormCreated) {
+                            renderStripePayment(paymentDetails, room);
+                            stripeFormCreated = true;
+                            
+                        } else {
+                            document.getElementById('stripe-payment-form').classList.toggle('hidden');
+                        }
+                        if (payPalFormCreated) {
+                            paymentDetails.querySelector('#paypal-payment-form').remove();
+                            payPalFormCreated = false;
+                        }
+                    } else if (selectedMethod === 'paypal') {
+                        if (!payPalFormCreated) {
+                            renderPayPalPayment(paymentDetails, room);
+                            payPalFormCreated = true;
+                            
+                        } else {
+                            document.getElementById('paypal-payment-form').classList.toggle('hidden');
+                        }
+                        if (stripeFormCreated) {
+                            paymentDetails.querySelector('#stripe-payment-form').remove();
+                            stripeFormCreated = false;
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    function renderStripePayment(paymentDetails, room) {
+        const stripeForm = document.createElement('div');
+        stripeForm.id = 'stripe-payment-form';
+        stripeForm.innerHTML = `
+            <div class="form-group">
+                <label for="card-element">Credit or debit card</label>
+                <div id="card-element" class="form-control"></div>
+            </div>
+            <div id="card-errors" role="alert"></div>
+            <input type="submit" id="submit-stripe-payment" value="Pay Now">
+        `;
+    
+        paymentDetails.appendChild(stripeForm);
+    
+        const event = new Event('stripeFormRendered');
+        document.dispatchEvent(event);
+    }
+    
+    function renderPayPalPayment(paymentDetails, room) {
+        const paypalForm = document.createElement('div');
+        paypalForm.id = 'paypal-payment-form';
+        paypalForm.innerHTML = `
+            <div id="paypal-button-container"></div>
+        `;
+    
+        paymentDetails.appendChild(paypalForm);
+    
+        const event = new Event('paypalFormRendered');
+        document.dispatchEvent(event);
+    }
 
     function renderRoom(index, roomsArray = roomsData) {
         const adults = adultsNum;
@@ -319,46 +427,28 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('book-now-button').addEventListener('click', function (e) {
                 e.preventDefault();
                 roomsContainer.remove();
+                document.querySelector('.filter-sort-controls').style.display = "none";
                 prevButton.style.display = "none";
                 nextButton.style.display = "none";
-                const bookingForm = document.createElement('div');
-                
-                bookingForm.innerHTML = `
-                    <input type="hidden" name="room-id" id="room-id" value="${room.id}">
-                    <div class="form-field">
-                        <label for="name">Name:</label>
-                        <input type="text" id="name" name="name" required>
-                    </div>
-                    <div class="form-field">
-                        <label for="email">Email:</label>
-                        <input type="email" id="email" name="email" required>
-                    </div>
-                    <div class="form-field">
-                        <label for="phone">Phone:</label>
-                        <input type="tel" id="phone" name="phone" required>
-                    </div>
-                
-                    <!-- Payment details -->
-                    <div class="form-group">
-                        <label for="card-element">Credit or debit card</label>
-                        <div id="card-element" class="form-control">
-                          <!-- A Stripe Element will be inserted here. -->
-                        </div>
-                    </div>
-                
-                    <div id="card-errors" role="alert"></div>
-                
-                    <input type="submit" id="submit-booking" value="Book Selected Room">
-                `;
-                
-                    
+    
                 let selectRoomForm = document.querySelector('#select-room-form .form-wrap');
-                    if (selectRoomForm) {
-                        selectRoomForm.appendChild(bookingForm);
-                        
-                        const event = new Event('stripeFormRendered');
-                        document.dispatchEvent(event);
-                    }
+                if (selectRoomForm) {
+                    const bookingForm = personalDetailsForm(room.id);
+                    selectRoomForm.appendChild(bookingForm);
+    
+                    document.getElementById('proceed-to-checkout').addEventListener('click', function (e) {
+                        e.preventDefault();
+    
+                        const name = document.getElementById('name').value;
+                        const email = document.getElementById('email').value;
+                        const phone = document.getElementById('phone').value;
+    
+                        if (name && email && phone) {
+                            bookingForm.style.display = "none";
+                            renderPaymentForm(room);
+                        }
+                    });
+                }
             });
             
             const readMoreLink = roomDiv.querySelector('.read-more');
@@ -378,8 +468,8 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function loadRoom(page) {
         filteredRoomsData = [];
-        const adults = parseInt(document.getElementById('select-room-adults').value);
-        const children = parseInt(document.getElementById('select-room-children').value);
+        const adults = parseInt(document.getElementById('select-room-adults').value) || 1;
+        const children = parseInt(document.getElementById('select-room-children').value) || 1;
         adultsNum = adults;
         childrenNum = children;
         

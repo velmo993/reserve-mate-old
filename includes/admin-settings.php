@@ -145,6 +145,21 @@ function register_payment_settings() {
         'payment-settings',
         'stripe_settings'
     );
+    
+    add_settings_section(
+        'paypal_settings',
+        'Paypal Settings',
+        null,
+        'payment-settings'
+    );
+    
+    add_settings_field(
+        'paypal_client_id',
+        'Paypal Client Id',
+        'display_paypal_client_id_field',
+        'payment-settings',
+        'paypal_settings'
+    );
 }
 
 // The callback function for the "Settings" page
@@ -195,10 +210,18 @@ function display_stripe_public_key_field() {
     <?php
 }
 
+function display_paypal_client_id_field() {
+    $options = get_option('payment_settings');
+    ?>
+    <input type="text" name="payment_settings[paypal_client_id]" value="<?php echo isset($options['paypal_client_id']) ? esc_attr($options['paypal_client_id']) : ''; ?>" class="regular-text">
+    <?php
+}
+
 function sanitize_payment_settings($input) {
     $new_input = array();
     $new_input['stripe_secret_key'] = sanitize_text_field($input['stripe_secret_key']);
     $new_input['stripe_public_key'] = sanitize_text_field($input['stripe_public_key']);
+    $new_input['paypal_client_id'] = sanitize_text_field($input['paypal_client_id']);
     return $new_input;
 }
 
