@@ -31,11 +31,11 @@ function create_booking_post_type() {
     );
 }
 
-// Create table for rooms
 function create_rooms_table() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'reservemate_rooms';
     $charset_collate = $wpdb->get_charset_collate();
+
     if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
         $sql = "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -43,6 +43,8 @@ function create_rooms_table() {
             description text NULL,
             max_guests mediumint(9) NOT NULL,
             cost_per_day decimal(10, 2) NOT NULL DEFAULT 0.00,
+            adult_price decimal(10, 2) NOT NULL DEFAULT 0.00,
+            child_price decimal(10, 2) NOT NULL DEFAULT 0.00,
             size varchar(100) NOT NULL,
             PRIMARY KEY  (id)
         ) $charset_collate;";
@@ -452,20 +454,24 @@ function load_room_callback() {
         $room_id = $room->id;
         $room_images = get_room_pictures($room_id);
         $room_amenities = get_all_room_amenities($room_id);
-
+    
         $images = array_map(function($img) {
             return [
                 'url' => wp_get_attachment_url($img->image_id)
             ];
         }, $room_images);
-
+    
         $amenities = array_map(function($amenity) {
             return [
                 'name' => format_amenity_name($amenity),
                 'icon' => get_amenity_icon($amenity)
             ];
         }, $room_amenities);
-
+    
+        $base_cost = $room->cost_per_day;
+        $price_per_adult = $room->adult_price;
+        $price_per_child = $room->child_price;
+    
         if (isset($booked_rooms_map[$room->id])) {
             $is_booked = true;
             $next_available_date = date('Y-m-d', strtotime($booked_rooms_map[$room->id] . ' +1 day'));
@@ -480,7 +486,9 @@ function load_room_callback() {
             'is_booked' => $is_booked,
             'next_available_date' => $next_available_date,
             'description' => $room->description,
-            'cost_per_day' => $room->cost_per_day,
+            'base_cost' => $base_cost,
+            'price_per_adult' => $price_per_adult,
+            'price_per_child' => $price_per_child,
             'currency_symbol' => get_option('currency_symbol', '$'),
             'images' => $images,
             'size' => $room->size,

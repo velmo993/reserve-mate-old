@@ -227,6 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
         editRoomButtons.forEach(function(button) {
             button.addEventListener('click', function(e) {
                 e.preventDefault();
+    
                 let roomId = this.getAttribute('data-room-id');
                 let roomName = this.getAttribute('data-room-name');
                 let roomDescription = this.getAttribute('data-room-description');
@@ -234,20 +235,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 let costPerDay = this.getAttribute('data-cost-per-day');
                 let roomSize = this.getAttribute('data-room-size');
                 let roomAmenities = JSON.parse(this.getAttribute('data-amenities'));
-                
+                let adultPrice = this.getAttribute('data-adult-price');
+                let childPrice = this.getAttribute('data-child-price');
+    
                 document.getElementById('edit-room-id').value = roomId;
                 document.getElementById('edit_room_name').value = roomName;
                 document.getElementById('edit_room_description').value = roomDescription;
                 document.getElementById('edit_max_guests').value = maxGuests;
                 document.getElementById('edit_cost_per_day').value = costPerDay;
                 document.getElementById('edit_room_size').value = roomSize;
-        
+                document.getElementById('edit_adult_price').value = adultPrice;
+                document.getElementById('edit_child_price').value = childPrice;
+    
                 fetchAmenities(roomId, roomAmenities);
-                
                 updateRoomImages(roomId);
-                
+    
                 openModal();
-                
+    
                 document.querySelector('.close-button').addEventListener('click', function() {
                     closeModal();
                 });
@@ -256,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
         });
-        
+    
         document.querySelectorAll('.dropdown-toggle').forEach(function(toggle) {
             toggle.addEventListener('click', function() {
                 let menu = this.nextElementSibling;

@@ -146,12 +146,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id']) && isset($
     $children = intval($_POST['select-room-children']);
     $start_date = sanitize_text_field($_POST['select-room-start-date']);
     $end_date = sanitize_text_field($_POST['select-room-end-date']);
+    
     $start = new DateTime($start_date);
     $end = new DateTime($end_date);
     $interval = $start->diff($end);
     $days_booked = $interval->days;
-    $cost_per_day = get_room_cost($room_id);
-    $total_cost = $days_booked * floatval($cost_per_day);
+
+    $room_data = get_room_cost($room_id);
+    $base_cost = floatval($room_data['base_cost']);
+    $price_per_adult = floatval($room_data['price_per_adult']);
+    $price_per_child = floatval($room_data['price_per_child']);
+
+    // Calculate total cost
+    $total_cost = $base_cost + ($price_per_adult * $adults * $days_booked) + ($price_per_child * $children * $days_booked);
     $currency = get_currency_code();
     
     if (isset($_POST['stripeToken'])) {
@@ -231,8 +238,15 @@ function save_booking_to_calendar($room_id, $adults, $children, $start_date, $en
 
 function get_room_cost($room_id) {
     global $wpdb;
-    $cost_per_day = $wpdb->get_var($wpdb->prepare("SELECT cost_per_day FROM {$wpdb->prefix}reservemate_rooms WHERE id = %d", $room_id));
-    return $cost_per_day;
+
+    $room_data = $wpdb->get_row($wpdb->prepare(
+        "SELECT cost_per_day AS base_cost, price_per_adult, price_per_child 
+         FROM {$wpdb->prefix}reservemate_rooms 
+         WHERE id = %d",
+         $room_id
+    ), ARRAY_A);
+
+    return $room_data;
 }
 
 function get_room_details($room_id) {

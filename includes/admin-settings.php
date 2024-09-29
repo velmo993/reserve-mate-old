@@ -210,6 +210,8 @@ function manage_rooms_page() {
         $description = isset($_POST['room_description']) ? sanitize_textarea_field($_POST['room_description']) : '';
         $max_guests = isset($_POST['max_guests']) ? intval($_POST['max_guests']) : 0;
         $cost_per_day = isset($_POST['cost_per_day']) ? floatval($_POST['cost_per_day']) : 0.00;
+        $adult_price = isset($_POST['adult_price']) ? floatval($_POST['adult_price']) : 0.00;
+        $child_price = isset($_POST['child_price']) ? floatval($_POST['child_price']) : 0.00;
         $size = isset($_POST['size']) ? sanitize_text_field($_POST['size']) : '';
         $amenities = isset($_POST['amenities']) ? $_POST['amenities'] : [];
         
@@ -242,6 +244,8 @@ function handle_room_insert($data) {
         'description' => sanitize_textarea_field($data['room_description']),
         'max_guests' => intval($data['max_guests']),
         'cost_per_day' => floatval($data['cost_per_day']),
+        'adult_price' => floatval($data['adult_price']),
+        'child_price' => floatval($data['child_price']),
         'size' => sanitize_text_field($data['size']),
     ];
     
@@ -263,6 +267,8 @@ function handle_room_update($data) {
         'description' => sanitize_textarea_field($data['room_description']),
         'max_guests' => intval($data['max_guests']),
         'cost_per_day' => floatval($data['cost_per_day']),
+        'adult_price' => floatval($data['adult_price']),
+        'child_price' => floatval($data['child_price']),
         'size' => sanitize_text_field($data['size']),
     ];
     $data['amenities'] = isset($data['amenities']) ? $data['amenities'] : [];
@@ -388,8 +394,16 @@ function render_add_room_form($currency_symbol) {
                     <td><input name="max_guests" type="number" id="max_guests" min="1" class="regular-text" required></td>
                 </tr>
                 <tr valign="top">
-                    <th scope="row"><label for="cost_per_day">Cost per Night (<?php echo $currency_symbol; ?>)</label><i class="star-required">*</i></th>
+                    <th scope="row"><label for="cost_per_day">Base Cost per Night (<?php echo $currency_symbol; ?>)</label><i class="star-required">*</i></th>
                     <td><input name="cost_per_day" type="number" step="0.01" id="cost_per_day" class="regular-text" required></td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><label for="adult_price">Price Per Adult (<?php echo $currency_symbol; ?>)</label></th>
+                    <td><input name="adult_price" type="number" step="0.01" id="adult_price" class="regular-text"></td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><label for="child_price">Price Per Child (<?php echo $currency_symbol; ?>)</label></th>
+                    <td><input name="child_price" type="number" step="0.01" id="child_price" class="regular-text"></td>
                 </tr>
                 <tr valign="top">
                     <th scope="row"><label for="size">Size (m&sup2)</label></th>
@@ -452,6 +466,8 @@ function render_existing_rooms($rooms, $currency_symbol) {
                                                 data-room-description="<?php echo esc_attr($room->description); ?>" 
                                                 data-max-guests="<?php echo esc_attr($room->max_guests); ?>" 
                                                 data-cost-per-day="<?php echo esc_attr($room->cost_per_day); ?>"
+                                                data-adult-price="<?php echo esc_attr($room->adult_price); ?>"
+                                                data-child-price="<?php echo esc_attr($room->child_price); ?>"
                                                 data-room-size="<?php echo esc_attr($room->size); ?>" 
                                                 data-amenities="<?php echo esc_attr(json_encode($amenities)); ?>">Edit</a>
                                         </li>
@@ -470,6 +486,8 @@ function render_existing_rooms($rooms, $currency_symbol) {
                                 <div>
                                     <div class="table-details-flex"><strong>Max guests:</strong><span class="room-data"><?php echo esc_html($room->max_guests); ?></span></div>
                                     <div class="table-details-flex"><strong>Cost per Night:</strong><span class="room-data"><?php echo esc_html($room->cost_per_day . ' ' . $currency_symbol); ?></span></div>
+                                    <div class="table-details-flex"><strong>Price per Adult:</strong><span class="room-data"><?php echo esc_html($room->adult_price . ' ' . $currency_symbol); ?></span></div>
+                                    <div class="table-details-flex"><strong>Price per Child:</strong><span class="room-data"><?php echo esc_html($room->child_price . ' ' . $currency_symbol); ?></span></div>
                                     <div class="table-details-flex"><strong>Size:</strong><span class="room-data"><?php echo esc_html($room->size) . 'm&sup2;'; ?></span></div>
                                     <div class="table-details-flex">
                                         <strong>Amenities:</strong>
@@ -543,6 +561,14 @@ function render_edit_modal($currency_symbol, $rooms) {
                 <tr valign="top">
                     <th scope="row"><label for="edit_cost_per_day">Cost per Night (<?php echo $currency_symbol; ?>)</label></th>
                     <td><input name="cost_per_day" type="number" step="0.01" id="edit_cost_per_day" class="regular-text" required></td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><label for="edit_adult_price">Price per Adult (<?php echo $currency_symbol; ?>)</label></th>
+                    <td><input name="adult_price" type="number" step="0.01" id="edit_adult_price" class="regular-text"></td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><label for="edit_child_price">Price per Child (<?php echo $currency_symbol; ?>)</label></th>
+                    <td><input name="child_price" type="number" step="0.01" id="edit_child_price" class="regular-text"></td>
                 </tr>
                 <tr valign="top">
                     <th scope="row"><label for="edit_room_size">Size (m&sup2)</label></th>

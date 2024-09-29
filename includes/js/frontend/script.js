@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let touchstartY = 0;
     let touchendX = 0;
     let touchendY = 0;
+    let adultsNum = 0;
+    let childrenNum = 0;
+    let storedBookedDays = 1;
     var rooms = document.querySelectorAll('.single-room-container .available-room');
     var prevButton = document.getElementById('prev-room');
     var nextButton = document.getElementById('next-room');
@@ -177,8 +180,9 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function applyFilters(minPrice, maxPrice, minRoomSize, selectedAmenities) {
         filteredRoomsData = roomsData.filter(room => {
-            const matchesPrice = (!minPrice || parseInt(room.cost_per_day) >= parseInt(minPrice)) && 
-                                 (!maxPrice || parseInt(room.cost_per_day) <= parseInt(maxPrice));
+            room.base_cost = parseInt(room.base_cost, 10) > 0 ? room.base_cost : (parseInt(room.price_per_adult, 10) * (adultsNum || 1)) + (parseInt(room.price_per_child, 10) * childrenNum);
+            const matchesPrice = (!minPrice || parseInt(room.base_cost) >= parseInt(minPrice)) && 
+                                 (!maxPrice || parseInt(room.base_cost) <= parseInt(maxPrice));
     
             const matchesRoomSize = minRoomSize === 'none' || parseInt(room.size) >= parseInt(minRoomSize);
     
@@ -200,7 +204,19 @@ document.addEventListener('DOMContentLoaded', function () {
         updateNavigationButtons(filteredRoomsData);
     }
 
+    function daysBooked(startDate, endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const timeDifference = end.getTime() - start.getTime();
+        const daysBooked = timeDifference / (1000 * 3600 * 24);
+
+        return daysBooked;
+    }
+
     function renderRoom(index, roomsArray = roomsData) {
+        const adults = adultsNum;
+        const children = childrenNum;
+        const bookedDays = storedBookedDays;
         const roomsContainer = document.querySelector('#rooms-container');
         
         const dataToUse = (filteredRoomsData.length > 0 ? filteredRoomsData : roomsData).sort((a, b) => {
@@ -218,6 +234,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const totalRooms = roomsArray.length || roomsData.length;
             const currentRoomNumber = index + 1;
             const roomDiv = document.createElement('div');
+            const totalCost = (parseInt(room.base_cost, 10) 
+                + (parseInt(room.price_per_adult, 10) * adults) 
+                + (parseInt(room.price_per_child, 10) * children)).toFixed(2) * bookedDays;
+            const baseCost = parseInt(room.base_cost, 10);
+            let displayedCost = baseCost > 0 ? `${room.currency_symbol}${baseCost}/night` : `${room.currency_symbol}${(parseInt(room.price_per_adult, 10) * (adults || 1)) + (parseInt(room.price_per_child, 10) * children)}/night`;
+
             roomDiv.className = 'available-room active';
             roomDiv.innerHTML = `
                 <div id="room-counter"></div>
@@ -237,8 +259,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
                 <div class="single-room-container">
                     <div class="room-cost">
-                        <div class="cost-per-day">${room.currency_symbol}<i>${room.cost_per_day}</i>/night</div>
-                        <div class="total-cost">Total: ${room.currency_symbol}<i>${room.total_cost}</i></div>
+                        <div class="cost-per-day">${displayedCost}</div>
+                        <div class="total-cost">Total: ${room.currency_symbol}<i>${totalCost}</i></div>
                     </div>
                     <div class="room-images">
                         ${room.images.length 
@@ -356,9 +378,15 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function loadRoom(page) {
         filteredRoomsData = [];
+        const adults = parseInt(document.getElementById('select-room-adults').value);
+        const children = parseInt(document.getElementById('select-room-children').value);
+        adultsNum = adults;
+        childrenNum = children;
+        
         const startDateElement = document.getElementById('select-room-start-date');
         const endDateElement = document.getElementById('select-room-end-date');
-    
+        storedBookedDays = daysBooked(startDateElement.value, endDateElement.value);
+        
         if (startDateElement && endDateElement) {
             const startDate = startDateElement.value;
             const endDate = endDateElement.value;
@@ -372,7 +400,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (data.success && data.data.rooms.length > 0) {
                             roomsData = data.data.rooms;
                             totalRooms = data.data.total_rooms;
-                            renderRoom(currentIndex);
+                            renderRoom(currentIndex, roomsData);
                             updateNavigationButtons();
                         } else {
                             console.log('No rooms found.');
@@ -382,7 +410,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         console.error('Error loading room:');
                     });
             } else {
-                renderRoom(currentIndex);
+                renderRoom(currentIndex, roomsData);
                 updateNavigationButtons();
             }
         }
@@ -559,12 +587,20 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function sortRooms(criteria, order) {
         let dataToUse = filteredRoomsData.length > 0 ? filteredRoomsData : roomsData;
-    
         dataToUse.sort((a, b) => {
             let valueA, valueB;
             if (criteria === 'price') {
-                valueA = a.cost_per_day;
-                valueB = b.cost_per_day;
+            const totalCostA = (parseInt(a.base_cost, 10) > 0)
+                ? parseInt(a.base_cost, 10)
+                : ((parseInt(a.price_per_adult, 10) * adultsNum) + (parseInt(a.price_per_child, 10) * childrenNum)) * storedBookedDays;
+
+            const totalCostB = (parseInt(b.base_cost, 10) > 0)
+                ? parseInt(b.base_cost, 10)
+                : ((parseInt(b.price_per_adult, 10) * adultsNum) + (parseInt(b.price_per_child, 10) * childrenNum)) * storedBookedDays;
+
+            valueA = totalCostA;
+            valueB = totalCostB;
+
             } else if (criteria === 'size') {
                 valueA = a.size;
                 valueB = b.size;
