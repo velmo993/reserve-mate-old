@@ -80,7 +80,6 @@ function create_amenities_table() {
     $table_name = $wpdb->prefix . 'reservemate_amenities';
     $charset_collate = $wpdb->get_charset_collate();
 
-    // Check if the table doesn't exist before creating it
     if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
         $sql = "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -537,6 +536,44 @@ function enqueue_stripe_scripts() {
     ]);
 }
 
+function enqueue_paypal_scripts() {
+    $paypal_client_id = get_option('payment_settings')['paypal_client_id'];
+    wp_enqueue_script('paypal-js', 'https://www.paypal.com/sdk/js?client-id=' . $paypal_client_id . '&disable-funding=card', [], null, true);
+    wp_enqueue_script('paypal-payment', plugin_dir_url(__FILE__) . 'includes/js/paypal/paypal-payment.js', ['paypal-js'], null, true);
+    
+    $paypal_client_id = get_option('payment_settings')['paypal_client_id'];
+    wp_localize_script('paypal-payment', 'paypal_vars', [
+        'paypalClientId' => $paypal_client_id,
+        'pluginDir' => plugin_dir_url(__FILE__)
+    ]);
+}
+
+// function enqueue_apple_pay_scripts() {
+//     wp_enqueue_script('apple-pay-sdk', 'https://applepay.cdn-apple.com/jsapi/v1/apple-pay-sdk.js', [], null, true);
+//     wp_enqueue_script('apple-pay-payment', plugin_dir_url(__FILE__) . 'includes/js/apple-pay/apple-pay-payment.js', ['apple-pay-sdk'], null, true);
+
+//     $apple_pay_merchant_id = get_option('payment_settings')['apple_pay_merchant_id'];
+
+//     wp_localize_script('apple-pay-payment', 'apple_pay_vars', [
+//         'merchantId' => $apple_pay_merchant_id,
+//         'pluginDir' => plugin_dir_url(__FILE__)
+//     ]);
+// }
+
+function enqueue_payment_scripts() {
+    wp_enqueue_script('script', plugin_dir_url(__FILE__) . 'includes/js/frontend/script.js', [], null, true);
+    
+    $p_settings = get_option('payment_settings');
+
+    $payment_settings = [
+        'stripe_enabled' => isset($p_settings['stripe_enabled']) ? $p_settings['stripe_enabled'] : '0',
+        'paypal_enabled' => isset($p_settings['paypal_enabled']) ? $p_settings['paypal_enabled'] : '0',
+        // 'apple_pay_enabled' => isset($p_settings['apple_pay_enabled']) ? $p_settings['apple_pay_enabled'] : '0',
+    ];
+    
+    wp_localize_script('script', 'paymentSettings', $payment_settings);
+}
+
 add_action('wp_ajax_get_filter_data', 'get_filter_data');
 add_action('wp_ajax_nopriv_get_filter_data', 'get_filter_data');
 add_action('wp_enqueue_scripts', 'enqueue_ajax_scripts');
@@ -552,6 +589,9 @@ add_action('wp_ajax_delete_room_image', 'ajax_delete_room_image');
 add_action('wp_ajax_fetch_amenities', 'ajax_fetch_amenities');
 add_action('wp_footer', 'initialize_date_picker');
 add_action('wp_enqueue_scripts', 'enqueue_stripe_scripts');
+add_action('wp_enqueue_scripts', 'enqueue_paypal_scripts');
+// add_action('wp_enqueue_scripts', 'enqueue_apple_pay_scripts');
+add_action('wp_enqueue_scripts', 'enqueue_payment_scripts');
 
 register_activation_hook(__FILE__, 'create_amenities_table');
 register_activation_hook(__FILE__, 'create_rooms_table');

@@ -129,6 +129,14 @@ function register_payment_settings() {
         null,
         'payment-settings'
     );
+    
+    add_settings_field(
+        'stripe_enabled',
+        'Enable Stripe Payment',
+        'display_stripe_enabled_field',
+        'payment-settings',
+        'stripe_settings'
+    );
 
     add_settings_field(
         'stripe_secret_key',
@@ -154,15 +162,69 @@ function register_payment_settings() {
     );
     
     add_settings_field(
+        'paypal_enabled',
+        'Enable PayPal Payment',
+        'display_paypal_enabled_field',
+        'payment-settings',
+        'paypal_settings'
+    );
+    
+    add_settings_field(
         'paypal_client_id',
         'Paypal Client Id',
         'display_paypal_client_id_field',
         'payment-settings',
         'paypal_settings'
     );
+    
+    // add_settings_section(
+    //     'apple_pay_settings',
+    //     'Apple Pay Settings',
+    //     null,
+    //     'payment-settings'
+    // );
+    
+    // add_settings_field(
+    //     'apple_pay_enabled',
+    //     'Enable Apple Pay Payment',
+    //     'display_apple_pay_enabled_field',
+    //     'payment-settings',
+    //     'apple_pay_settings'
+    // );
+
+    // add_settings_field(
+    //     'apple_pay_merchant_id',
+    //     'Apple Pay Merchant ID',
+    //     'display_apple_pay_merchant_id_field',
+    //     'payment-settings',
+    //     'apple_pay_settings'
+    // );
+
+    // add_settings_field(
+    //     'apple_pay_cert_path',
+    //     'Apple Pay Certificate Path',
+    //     'display_apple_pay_cert_path_field',
+    //     'payment-settings',
+    //     'apple_pay_settings'
+    // );
+
+    // add_settings_field(
+    //     'apple_pay_key_path',
+    //     'Apple Pay Private Key Path',
+    //     'display_apple_pay_key_path_field',
+    //     'payment-settings',
+    //     'apple_pay_settings'
+    // );
+
+    // add_settings_field(
+    //     'apple_pay_display_name',
+    //     'Apple Pay Display Name',
+    //     'display_apple_pay_display_name_field',
+    //     'payment-settings',
+    //     'apple_pay_settings'
+    // );
 }
 
-// The callback function for the "Settings" page
 function booking_settings_page() {
     ?>
     <div class="wrap">
@@ -196,6 +258,11 @@ function payment_settings_page() {
     <?php
 }
 
+function display_stripe_enabled_field() {
+    $value = get_option('payment_settings')['stripe_enabled'] ?? '0';
+    echo '<input type="checkbox" name="payment_settings[stripe_enabled]" value="1" ' . checked(1, $value, false) . '> Enable Stripe';
+}
+
 function display_stripe_secret_key_field() {
     $options = get_option('payment_settings');
     ?>
@@ -210,6 +277,11 @@ function display_stripe_public_key_field() {
     <?php
 }
 
+function display_paypal_enabled_field() {
+    $value = get_option('payment_settings')['paypal_enabled'] ?? '0';
+    echo '<input type="checkbox" name="payment_settings[paypal_enabled]" value="1" ' . checked(1, $value, false) . '> Enable PayPal';
+}
+
 function display_paypal_client_id_field() {
     $options = get_option('payment_settings');
     ?>
@@ -217,12 +289,47 @@ function display_paypal_client_id_field() {
     <?php
 }
 
+// function display_apple_pay_enabled_field() {
+//     $value = get_option('payment_settings')['apple_pay_enabled'] ?? '0';
+//     echo '<input type="checkbox" name="payment_settings[apple_pay_enabled]" value="1" ' . checked(1, $value, false) . '> Enable Apple Pay';
+// }
+
+// function display_apple_pay_merchant_id_field() {
+//     $value = get_option('payment_settings')['apple_pay_merchant_id'] ?? '';
+//     echo '<input type="text" name="payment_settings[apple_pay_merchant_id]" value="' . esc_attr($value) . '" />';
+// }
+
+// function display_apple_pay_cert_path_field() {
+//     $value = get_option('payment_settings')['apple_pay_cert_path'] ?? '';
+//     echo '<input type="text" name="payment_settings[apple_pay_cert_path]" value="' . esc_attr($value) . '" />';
+// }
+
+// function display_apple_pay_key_path_field() {
+//     $value = get_option('payment_settings')['apple_pay_key_path'] ?? '';
+//     echo '<input type="text" name="payment_settings[apple_pay_key_path]" value="' . esc_attr($value) . '" />';
+// }
+
+// function display_apple_pay_display_name_field() {
+//     $value = get_option('payment_settings')['apple_pay_display_name'] ?? '';
+//     echo '<input type="text" name="payment_settings[apple_pay_display_name]" value="' . esc_attr($value) . '" />';
+// }
+
 function sanitize_payment_settings($input) {
-    $new_input = array();
-    $new_input['stripe_secret_key'] = sanitize_text_field($input['stripe_secret_key']);
-    $new_input['stripe_public_key'] = sanitize_text_field($input['stripe_public_key']);
-    $new_input['paypal_client_id'] = sanitize_text_field($input['paypal_client_id']);
-    return $new_input;
+    $sanitized_input = [];
+
+    $sanitized_input['stripe_enabled'] = isset($input['stripe_enabled']) ? 1 : 0;
+    $sanitized_input['stripe_secret_key'] = sanitize_text_field($input['stripe_secret_key']);
+    $sanitized_input['stripe_public_key'] = sanitize_text_field($input['stripe_public_key']);
+
+    $sanitized_input['paypal_enabled'] = isset($input['paypal_enabled']) ? 1 : 0;
+    $sanitized_input['paypal_client_id'] = sanitize_text_field($input['paypal_client_id']);
+
+    // $sanitized_input['apple_pay_enabled'] = isset($input['apple_pay_enabled']) ? 1 : 0;
+    // $sanitized_input['apple_pay_merchant_id'] = sanitize_text_field($input['apple_pay_merchant_id']);
+    // $sanitized_input['apple_pay_cert_path'] = sanitize_text_field($input['apple_pay_cert_path']);
+    // $sanitized_input['apple_pay_key_path'] = sanitize_text_field($input['apple_pay_key_path']);
+
+    return $sanitized_input;
 }
 
 function manage_rooms_page() {

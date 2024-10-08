@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
+    var msgModal = document.getElementById('booking-success-modal');
+    const imagesToPreload = 2;
     let currentIndex = 0;
     let totalRooms = 0;
     let roomsData = [];
@@ -215,6 +217,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function personalDetailsForm(roomId) {
         const bookingForm = document.createElement('div');
+        bookingForm.id = 'booking-form';
         bookingForm.innerHTML = `
             <input type="hidden" name="room-id" id="room-id" value="${roomId}">
             <div class="form-field">
@@ -234,91 +237,68 @@ document.addEventListener('DOMContentLoaded', function () {
         return bookingForm;
     }
     
-    function renderPaymentForm(room) {
+    function renderPaymentForm(room, bookingDetails) {
+        console.log('renderPaymentForm');
         const paymentForm = document.createElement('div');
+        paymentForm.id = 'payment-form';
+            
         paymentForm.innerHTML = `
-            <div class="form-group">
-                <label>Choose Payment Method:</label>
-                <div class="payment-methods">
-                    <button type="button" class="payment-button" data-method="stripe">Credit Card (Stripe)</button>
-                    <button type="button" class="payment-button" data-method="paypal">PayPal</button>
-                    <!-- Add more buttons for other payment methods if needed -->
+            <div id="payment-options">
+                <hr />
+                ${paymentSettings.stripe_enabled === "1" ? `
+                <div id="stripe-payment-form">
+                    <strong>Pay With Card:</strong>
+                    <div class="form-field">
+                        <div id="card-element" class="form-control"></div>
+                        <div id="card-errors" role="alert"></div>
+                    </div>
+                    <div class="form-field">
+                        <input type="submit" id="submit-stripe-payment" value="Pay Now">
+                    </div>
                 </div>
+                <hr />` : ''}
+
+                ${paymentSettings.paypal_enabled === "1" ? `
+                <div id="paypal-payment-form">
+                    <strong>Pay With PayPal:</strong>
+                    <div class="form-field">
+                        <div id="paypal-button-container"></div>
+                    </div>
+                    <input type="hidden" id="paypalPaymentID" name="paypalPaymentID">
+                </div>
+                <hr />` : ''}
             </div>
-            <div id="payment-details"></div>
+            
+            <div id="booking-summary">
+                <p><strong>Name:</strong><span>${bookingDetails.name}</span></p>
+                <p><strong>Phone:</strong><span>${bookingDetails.phone}</span></p>
+                <p><strong>Email:</strong><span>${bookingDetails.email}</span></p>
+                <p><strong>Room:</strong><span>${bookingDetails.roomName}</span></p>
+                <p><strong>Adults:</strong><span>${bookingDetails.adults}</span></p>
+                ${bookingDetails.children !== 0 ? `
+                <p><strong>Children:</strong><span>${bookingDetails.children}</span></p>
+                ` : ''}
+                <p><strong>Arrival Date:</strong><span>${bookingDetails.arrivalDate}</span></p>
+                <p><strong>Departure Date:</strong><span>${bookingDetails.departureDate}</span></p>
+                <p><strong>Total Price:</strong><span>${bookingDetails.currency}${bookingDetails.totalCost}</span></p>
+            </div>
         `;
     
         let selectRoomForm = document.querySelector('#select-room-form .form-wrap');
         if (selectRoomForm) {
+            console.log('if selectroomform');
             selectRoomForm.appendChild(paymentForm);
     
-            let stripeFormCreated = false;
-            let payPalFormCreated = false;
+            if (paymentSettings.stripe_enabled === "1") {
+                const event = new Event('stripeFormRendered');
+                document.dispatchEvent(event);
+            }
     
-            paymentForm.addEventListener('click', function (e) {
-                if (e.target.classList.contains('payment-button')) {
-                    const selectedMethod = e.target.getAttribute('data-method');
-                    const paymentDetails = document.getElementById('payment-details');
-    
-                    if (selectedMethod === 'stripe') {
-                        if (!stripeFormCreated) {
-                            renderStripePayment(paymentDetails, room);
-                            stripeFormCreated = true;
-                            
-                        } else {
-                            document.getElementById('stripe-payment-form').classList.toggle('hidden');
-                        }
-                        if (payPalFormCreated) {
-                            paymentDetails.querySelector('#paypal-payment-form').remove();
-                            payPalFormCreated = false;
-                        }
-                    } else if (selectedMethod === 'paypal') {
-                        if (!payPalFormCreated) {
-                            renderPayPalPayment(paymentDetails, room);
-                            payPalFormCreated = true;
-                            
-                        } else {
-                            document.getElementById('paypal-payment-form').classList.toggle('hidden');
-                        }
-                        if (stripeFormCreated) {
-                            paymentDetails.querySelector('#stripe-payment-form').remove();
-                            stripeFormCreated = false;
-                        }
-                    }
-                }
-            });
+            if (paymentSettings.paypal_enabled === "1") {
+                const event = new Event('paypalFormRendered');
+                document.dispatchEvent(event);
+            }
         }
-    }
-    
-    function renderStripePayment(paymentDetails, room) {
-        const stripeForm = document.createElement('div');
-        stripeForm.id = 'stripe-payment-form';
-        stripeForm.innerHTML = `
-            <div class="form-group">
-                <label for="card-element">Credit or debit card</label>
-                <div id="card-element" class="form-control"></div>
-            </div>
-            <div id="card-errors" role="alert"></div>
-            <input type="submit" id="submit-stripe-payment" value="Pay Now">
-        `;
-    
-        paymentDetails.appendChild(stripeForm);
-    
-        const event = new Event('stripeFormRendered');
-        document.dispatchEvent(event);
-    }
-    
-    function renderPayPalPayment(paymentDetails, room) {
-        const paypalForm = document.createElement('div');
-        paypalForm.id = 'paypal-payment-form';
-        paypalForm.innerHTML = `
-            <div id="paypal-button-container"></div>
-        `;
-    
-        paymentDetails.appendChild(paypalForm);
-    
-        const event = new Event('paypalFormRendered');
-        document.dispatchEvent(event);
     }
 
     function renderRoom(index, roomsArray = roomsData) {
@@ -326,13 +306,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const children = childrenNum;
         const bookedDays = storedBookedDays;
         const roomsContainer = document.querySelector('#rooms-container');
-        
-        const dataToUse = (filteredRoomsData.length > 0 ? filteredRoomsData : roomsData).sort((a, b) => {
-            if (a.is_booked && !b.is_booked) return 1;
-            if (!a.is_booked && b.is_booked) return -1;
-            return 0;
-        });
-        
+        const dataToUse = (filteredRoomsData.length > 0 ? filteredRoomsData : roomsData).sort(sortByAvailability);
+    
         if (roomsContainer) {
             roomsContainer.innerHTML = '';
         }
@@ -340,146 +315,215 @@ document.addEventListener('DOMContentLoaded', function () {
         if (index >= 0 && index < dataToUse.length) {
             const room = dataToUse[index];
             const totalRooms = roomsArray.length || roomsData.length;
-            const currentRoomNumber = index + 1;
-            const roomDiv = document.createElement('div');
-            const totalCost = (parseInt(room.base_cost, 10) 
-                + (parseInt(room.price_per_adult, 10) * adults) 
-                + (parseInt(room.price_per_child, 10) * children)).toFixed(2) * bookedDays;
-            const baseCost = parseInt(room.base_cost, 10);
-            let displayedCost = baseCost > 0 ? `${room.currency_symbol}${baseCost}/night` : `${room.currency_symbol}${(parseInt(room.price_per_adult, 10) * (adults || 1)) + (parseInt(room.price_per_child, 10) * children)}/night`;
-
-            roomDiv.className = 'available-room active';
-            roomDiv.innerHTML = `
-                <div id="room-counter"></div>
-                ${room.is_booked ? `
-                    <div class="room-availability">
-                        <span class="room-status">Booked, available from: <br /> ${room.next_available_date}</span>
-                    </div>
-                ` : ''}
-                <div class="room-name-radio">
-                    <label for="room-${room.id}">${room.name}</label>
-                    <input type="hidden" id="room-id" name="room-id" value="${room.id}">
-                    ${room.is_booked ? `
-                        <input type="submit" id="book-now-button" value="Book Now" disabled="true" style="text-decoration: line-through;">
-                    ` : `
-                        <input type="submit" id="book-now-button" value="Book Now">
-                    `}
-                </div>
-                <div class="single-room-container">
-                    <div class="room-cost">
-                        <div class="cost-per-day">${displayedCost}</div>
-                        <div class="total-cost">Total: ${room.currency_symbol}<i>${totalCost}</i></div>
-                    </div>
-                    <div class="room-images">
-                        ${room.images.length 
-                            ? room.images.map((image, index) => `<img class="room-img" src="${image.url}" alt="${room.name}" data-index="${index}" />`).join('') 
-                            : `
-                                <img class="room-img" src="https://placehold.co/140x140?text=Image+not+available" alt="Placeholder">
-                                <img class="room-img" src="https://placehold.co/140x140?text=Image+not+available" alt="Placeholder">
-                            `}
-                    </div>
-                    <div id="lightbox" class="lightbox">
-                        <span class="close" id="lightbox-close">&times;</span>
-                        <div class="lightbox-content">
-                            <img id="lightbox-img">
-                            <div class="lightbox-counter" id="lightbox-counter">${index + 1} / ${room.images.length}</div>
-                        </div>
-                        <a class="prev" id="prev-btn">&#10094;</a>
-                        <a class="next" id="next-btn">&#10095;</a>
-                    </div>
-                    <div class="room-details">
-                        <div class="room-size-guests">
-                            <div class="room-size">${room.size}m²</div>
-                            <div class="room-max-guests">${room.max_guests} guests</div>
-                        </div>
-                    </div>
-                </div>
-                ${room.amenities.length ? `
-                    <div class="room-amenities">
-                        <ul class="available-room-amenities">
-                            ${room.amenities.map(amenity => `
-                                <li>
-                                    <i class="${amenity.icon}" title="${amenity.name}"></i>
-                                    <span class="amenity-name">${amenity.name}</span>
-                                </li>
-                            `).join('')}
-                        </ul>
-                    </div>
-                ` : ''}
-                ${room.description ? `
-                    <div class="room-description">
-                        <p class="short-description">${truncateText(room.description, 20)}</p>
-                        <p class="full-description" style="display: none;">${room.description}</p>
-                        <a href="#" class="read-more">More</a>
-                    </div>
-                ` : ''}
-            `;
+            const totalCost = calculateTotalCost(room, adults, children, bookedDays);
+            const displayedCost = formatDisplayedCost(room, adults, children);
+            document.getElementById('total-payment-cost').value = totalCost;
+    
+            const roomDiv = createRoomDiv(room, index, totalRooms, totalCost, displayedCost);
             roomsContainer.appendChild(roomDiv);
-        
+    
+            lazyLoadImages();
             setupLightbox(room.images);
-            
-            let roomCounter = document.querySelector('#room-counter');
-            
-            if (roomCounter) {
-                roomCounter.textContent = `${currentRoomNumber} / ${totalRooms}`;
+            setupBookNowButton(room, totalCost);
+            setupReadMoreToggle(roomDiv);
+            setupRoomCounter(index, totalRooms);
+    
+            if (!document.getElementById('booking-form')) {
+                document.addEventListener('scroll', checkScrollPosition);
             }
-            
+    
+            amenitiesClickEvent();
+            initSortingButtons();
+        }
+    }
+    
+    function sortByAvailability(a, b) {
+        if (a.is_booked && !b.is_booked) return 1;
+        if (!a.is_booked && b.is_booked) return -1;
+        return 0;
+    }
+    
+    function calculateTotalCost(room, adults, children, bookedDays) {
+        const baseCost = parseInt(room.base_cost, 10);
+        const adultCost = parseInt(room.price_per_adult, 10) * adults;
+        const childCost = parseInt(room.price_per_child, 10) * children;
+        return ((baseCost + adultCost + childCost) * bookedDays).toFixed(2);
+    }
+    
+    function formatDisplayedCost(room, adults, children) {
+        const baseCost = parseInt(room.base_cost, 10);
+        if (baseCost > 0) {
+            return `${room.currency_symbol}${baseCost}/night`;
+        } else {
+            const costPerNight = (parseInt(room.price_per_adult, 10) * (adults || 1)) + (parseInt(room.price_per_child, 10) * children);
+            return `${room.currency_symbol}${costPerNight}/night`;
+        }
+    }
+    
+    function createRoomDiv(room, index, totalRooms, totalCost, displayedCost) {
+        const roomDiv = document.createElement('div');
+        roomDiv.className = 'available-room active';
+    
+        roomDiv.innerHTML = `
+            <div id="room-counter"></div>
+            ${room.is_booked ? `
+                <div class="room-availability">
+                    <span class="room-status">Booked, available from: <br /> ${room.next_available_date}</span>
+                </div>
+            ` : ''}
+            <div class="room-name-submit">
+                <label for="room-${room.id}">${room.name}</label>
+                <input type="hidden" id="room-id" name="room-id" value="${room.id}">
+                ${room.is_booked ? `
+                    <input type="submit" id="book-now-button" value="Book Now" disabled="true" style="text-decoration: line-through;">
+                ` : `
+                    <input type="submit" id="book-now-button" value="Book Now">
+                `}
+            </div>
+            <div class="single-room-container">
+                <div class="room-cost">
+                    <div class="cost-per-day">${displayedCost}</div>
+                    <div class="total-cost">Total: ${room.currency_symbol}<i>${totalCost}</i></div>
+                </div>
+                <div class="room-images">
+                    ${room.images.length ? 
+                        `${room.images.slice(0, imagesToPreload).map(image => 
+                            `<img class="room-img" src="${image.url}" alt="${room.name}" />`
+                        ).join('')}
+                        ${room.images.slice(imagesToPreload).map(image => 
+                            `<img class="room-img lazy-load" data-src="${image.url}" alt="${room.name}" loading="lazy" />`
+                        ).join('')}` 
+                    : 
+                        `<img class="room-img" src="https://placehold.co/140x140?text=Image+not+available" alt="Placeholder">
+                        <img class="room-img" src="https://placehold.co/140x140?text=Image+not+available" alt="Placeholder">`
+                    }
+                </div>
+                <div id="lightbox" class="lightbox">
+                    <span class="close" id="lightbox-close">&times;</span>
+                    <div class="lightbox-content">
+                        <img id="lightbox-img">
+                        <div class="lightbox-counter" id="lightbox-counter">${index + 1} / ${room.images.length}</div>
+                    </div>
+                    <a class="prev" id="prev-btn">&#10094;</a>
+                    <a class="next" id="next-btn">&#10095;</a>
+                </div>
+                <div class="room-details">
+                    <div class="room-size-guests">
+                        <div class="room-size"><i class="fa-solid fa-expand"></i>${room.size}m²</div>
+                        <div class="room-max-guests"><i class="fa-solid fa-user-group"></i>${room.max_guests} guests</div>
+                    </div>
+                </div>
+            </div>
+            ${room.amenities.length ? `
+                <div class="room-amenities">
+                    <ul class="available-room-amenities">
+                        ${room.amenities.map(amenity => `
+                            <li>
+                                <i class="${amenity.icon}" title="${amenity.name}"></i>
+                                <span class="amenity-name">${amenity.name}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+            ${room.description ? `
+                <div class="room-description">
+                    <p class="short-description">
+                        ${truncateText(room.description, 20)}
+                        <a href="#" class="read-more">See More</a>
+                    </p>
+                    <p class="full-description" style="display: none;">${room.description}</p>
+                </div>
+            ` : ''} 
+        `;
+    
+        return roomDiv;
+    }
+    
+    function setupRoomCounter(index, totalRooms) {
+        let roomCounter = document.querySelector('#room-counter');
+        if (roomCounter) {
+            roomCounter.textContent = `${index + 1} / ${totalRooms}`;
+        }
+    }
+    
+    function setupBookNowButton(room, totalCost) {
+        const bookNowBtn = document.getElementById('book-now-button');
+        if(bookNowBtn) {
             document.getElementById('book-now-button').addEventListener('click', function (e) {
                 e.preventDefault();
-                roomsContainer.remove();
                 document.querySelector('.filter-sort-controls').style.display = "none";
-                prevButton.style.display = "none";
-                nextButton.style.display = "none";
-    
-                let selectRoomForm = document.querySelector('#select-room-form .form-wrap');
+                document.querySelector('#rooms-container').remove();
+        
+                const selectRoomForm = document.querySelector('#select-room-form .form-wrap');
                 if (selectRoomForm) {
                     const bookingForm = personalDetailsForm(room.id);
                     selectRoomForm.appendChild(bookingForm);
-    
+                    document.getElementById('prev-room').style.display = "none";
+                    document.getElementById('next-room').style.display = "none";
+        
                     document.getElementById('proceed-to-checkout').addEventListener('click', function (e) {
                         e.preventDefault();
-    
-                        const name = document.getElementById('name').value;
-                        const email = document.getElementById('email').value;
-                        const phone = document.getElementById('phone').value;
-    
-                        if (name && email && phone) {
-                            bookingForm.style.display = "none";
-                            renderPaymentForm(room);
-                        }
+                        handleCheckout(room, totalCost, bookingForm);
                     });
                 }
             });
-            
-            const readMoreLink = roomDiv.querySelector('.read-more');
-            if (readMoreLink) {
-                readMoreLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    toggleDescription(e, readMoreLink);
-                });
-            }
         }
-        amenitiesClickEvent();
-        initSortingButtons();
-        if(!prevButton.style.display === "none") {
-            window.addEventListener('scroll', checkScrollPosition);
+    }
+    
+    function setupReadMoreToggle(roomDiv) {
+        const readMoreLink = roomDiv.querySelector('.read-more');
+        if (readMoreLink) {
+            readMoreLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                toggleDescription(e, readMoreLink);
+            });
+        }
+    }
+    
+    function handleCheckout(room, totalCost, bookingForm) {
+        console.log('handlecheckout');
+        const name = document.getElementById('name').value;
+        const email = document.getElementById('email').value;
+        const phone = document.getElementById('phone').value;
+        const arrivalDate = document.getElementById('select-room-start-date').value;
+        const departureDate = document.getElementById('select-room-end-date').value;
+    
+        const bookingDetails = {
+            roomName: room.name,
+            name: name,
+            email: email,
+            phone: phone,
+            adults: adultsNum,
+            children: childrenNum,
+            bookedDays: storedBookedDays,
+            arrivalDate: arrivalDate,
+            departureDate: departureDate,
+            totalCost: totalCost,
+            currency: room.currency_symbol,
+        };
+    
+        if (name && email && phone) {
+            bookingForm.style.display = "none";
+            renderPaymentForm(room, bookingDetails);
         }
     }
     
     function loadRoom(page) {
         filteredRoomsData = [];
-        const adults = parseInt(document.getElementById('select-room-adults').value) || 1;
-        const children = parseInt(document.getElementById('select-room-children').value) || 1;
-        adultsNum = adults;
-        childrenNum = children;
-        
+        const adultsElement = document.getElementById('select-room-adults');
+        const childrenElement = document.getElementById('select-room-children');
         const startDateElement = document.getElementById('select-room-start-date');
         const endDateElement = document.getElementById('select-room-end-date');
-        storedBookedDays = daysBooked(startDateElement.value, endDateElement.value);
-        
-        if (startDateElement && endDateElement) {
+    
+        if (adultsElement && childrenElement && startDateElement && endDateElement) {
             const startDate = startDateElement.value;
             const endDate = endDateElement.value;
+            const adults = parseInt(adultsElement.value);
+            const children = parseInt(childrenElement.value);
+            adultsNum = adults;
+            childrenNum = children;
+            storedBookedDays = daysBooked(startDateElement.value, endDateElement.value);
     
             if (roomsData.length === 0 || page * 20 >= roomsData.length) {
                 const url = `${ajaxScript.ajaxurl}?action=load_room&page=${page}&start_date=${startDate}&end_date=${endDate}&_ajax_nonce=${ajaxScript.nonce}`;
@@ -497,7 +541,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     })
                     .catch(error => {
-                        console.error('Error loading room:');
+                        console.error('Error loading room:', error);
                     });
             } else {
                 renderRoom(currentIndex, roomsData);
@@ -620,13 +664,16 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     
-        closeBtn.addEventListener('click', () => closeLightbox(lightbox));
+        if (lightbox && closeBtn && prevBtn && nextBtn) {
+            closeBtn.addEventListener('click', () => closeLightbox(lightbox));
+            prevBtn.addEventListener('click', () => changeImage(-1, images, lightboxImg, lightBoxCounter));
+            nextBtn.addEventListener('click', () => changeImage(1, images, lightboxImg, lightBoxCounter));
+        }
+        
+        if (lightbox && images && lightboxImg && lightBoxCounter) {
+            setupSwipeEvents(lightbox, images, lightboxImg, lightBoxCounter);
+        }
     
-        prevBtn.addEventListener('click', () => changeImage(-1, images, lightboxImg, lightBoxCounter));
-    
-        nextBtn.addEventListener('click', () => changeImage(1, images, lightboxImg, lightBoxCounter));
-    
-        setupSwipeEvents(lightbox, images, lightboxImg, lightBoxCounter);
     }
     
     function setupSwipeEvents(lightbox, images, lightboxImg, lightBoxCounter) {
@@ -657,8 +704,9 @@ document.addEventListener('DOMContentLoaded', function () {
     function checkScrollPosition() {
         const selectRoomForm = document.getElementById('select-room-form');
         const formRect = selectRoomForm.getBoundingClientRect();
+        const bookingForm = document.getElementById('booking-form');
         
-        if (formRect.bottom < 0 || formRect.top > window.innerHeight) {
+        if (formRect.bottom < 0 || formRect.top > window.innerHeight || bookingForm) {
             prevButton.style.display = 'none';
             nextButton.style.display = 'none';
         } else {
@@ -709,6 +757,37 @@ document.addEventListener('DOMContentLoaded', function () {
         updateNavigationButtons();
     }
     
+    const lazyLoadImages = () => {
+        const images = document.querySelectorAll('.room-img[data-src]');
+        const config = {
+            rootMargin: '0px 0px 50px 0px',
+            threshold: 0.01
+        };
+    
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    img.src = img.dataset.src;
+                    img.removeAttribute('data-src');
+                    observer.unobserve(img);
+                }
+            });
+        }, config);
+    
+        images.forEach(image => {
+            observer.observe(image);
+        });
+    };
+
+    if (msgModal && window.location.href.includes('booking_status=success')) {
+        msgModal.classList.add('show');
+        setTimeout(() => {
+            console.log("Delayed for 4 seconds.");
+            msgModal.classList.remove('show');
+            
+        }, 4000);
+    }
     
 });
 

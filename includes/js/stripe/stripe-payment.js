@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         });
+        cardElement.parentElement.style.padding = '1rem 0';
     }
 
     document.addEventListener('stripeFormRendered', initializeStripe);
