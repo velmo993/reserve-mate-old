@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
-    var msgModal = document.getElementById('booking-success-modal');
+    const msgModal = document.getElementById('booking-success-modal');
     const imagesToPreload = 2;
+    let descriptionOpened = false;
     let currentIndex = 0;
     let totalRooms = 0;
     let roomsData = [];
@@ -12,9 +13,19 @@ document.addEventListener('DOMContentLoaded', function () {
     let adultsNum = 0;
     let childrenNum = 0;
     let storedBookedDays = 1;
-    var rooms = document.querySelectorAll('.single-room-container .available-room');
-    var prevButton = document.getElementById('prev-room');
-    var nextButton = document.getElementById('next-room');
+    
+    const rooms = document.querySelectorAll('.single-room-container .available-room');
+    const prevButton = document.getElementById('prev-room');
+    const nextButton = document.getElementById('next-room');
+    
+    const bedIcons = {
+        'Double Bed': 'https://uxwing.com/wp-content/themes/uxwing/download/household-and-furniture/bedroom-icon.svg',
+        'Single Bed': 'fa-bed',
+        'Queen Bed': 'fa-crown',
+        'King Bed': 'fa-crown',
+        'Sofa Bed': 'fa-couch',
+        'Bunk Bed': 'fa-layer-group',
+    };
         
     function amenitiesClickEvent() {
         document.querySelectorAll('.available-room-amenities li i').forEach(function(icon) {
@@ -53,9 +64,9 @@ document.addEventListener('DOMContentLoaded', function () {
         return text;
     }
     
-    function toggleDescription(event, link) {
-        event.preventDefault();
-        
+    function toggleDescription(e, link) {
+        e.preventDefault();
+        descriptionOpened = true;
         const roomDescription = link.closest('.room-description');
         const shortDescription = roomDescription.querySelector('.short-description');
         const fullDescription = roomDescription.querySelector('.full-description');
@@ -102,7 +113,8 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (closeModal) {
             closeModal.addEventListener('click', function() {
-                filterMenu.style.display = 'none'; 
+                filterMenu.style.display = 'none';
+                document.body.classList.remove('modal-open');
             });
         }
         
@@ -238,7 +250,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     
     function renderPaymentForm(room, bookingDetails) {
-        console.log('renderPaymentForm');
         const paymentForm = document.createElement('div');
         paymentForm.id = 'payment-form';
             
@@ -286,7 +297,6 @@ document.addEventListener('DOMContentLoaded', function () {
     
         let selectRoomForm = document.querySelector('#select-room-form .form-wrap');
         if (selectRoomForm) {
-            console.log('if selectroomform');
             selectRoomForm.appendChild(paymentForm);
     
             if (paymentSettings.stripe_enabled === "1") {
@@ -363,7 +373,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function createRoomDiv(room, index, totalRooms, totalCost, displayedCost) {
         const roomDiv = document.createElement('div');
         roomDiv.className = 'available-room active';
-    
         roomDiv.innerHTML = `
             <div id="room-counter"></div>
             ${room.is_booked ? `
@@ -394,8 +403,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             `<img class="room-img lazy-load" data-src="${image.url}" alt="${room.name}" loading="lazy" />`
                         ).join('')}` 
                     : 
-                        `<img class="room-img" src="https://placehold.co/140x140?text=Image+not+available" alt="Placeholder">
-                        <img class="room-img" src="https://placehold.co/140x140?text=Image+not+available" alt="Placeholder">`
+                        `<img class="room-img placeholder-img" src="https://placehold.co/140x140?text=Image+not+available" alt="Placeholder">
+                        <img class="room-img placeholder-img" src="https://placehold.co/140x140?text=Image+not+available" alt="Placeholder">`
                     }
                 </div>
                 <div id="lightbox" class="lightbox">
@@ -410,7 +419,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="room-details">
                     <div class="room-size-guests">
                         <div class="room-size"><i class="fa-solid fa-expand"></i>${room.size}m²</div>
-                        <div class="room-max-guests"><i class="fa-solid fa-user-group"></i>${room.max_guests} guests</div>
+                        <div class="room-max-guests"><i class="fa-solid fa-user-group"></i>${room.max_guests}</div>
+                        ${room.beds.length ? `
+                            <div class="room-beds">
+                                ${room.beds.map(bed => {
+                                    const icon = bedIcons[bed.bed_type];
+                                    if (icon && icon.includes('http')) {
+                                        return `<div>${bed.bed_count}  <img src="${icon}" alt="${bed.bed_type}" class="bed-icon" style="width: 1em; height: 1em; vertical-align: text-top;" /></div>`;
+                                    } else {
+                                        return `<div>${bed.bed_count} <i class="fa-solid ${icon || 'fa-bed'}"></i></div>`;
+                                    }
+                                }).join(' ')}
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -482,7 +503,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     
     function handleCheckout(room, totalCost, bookingForm) {
-        console.log('handlecheckout');
         const name = document.getElementById('name').value;
         const email = document.getElementById('email').value;
         const phone = document.getElementById('phone').value;
@@ -552,6 +572,15 @@ document.addEventListener('DOMContentLoaded', function () {
     
     loadRoom(0);
 
+    function scrollToTop() {
+        const selectRoomForm = document.querySelector('#select-room-form');
+        const formPosition = selectRoomForm.getBoundingClientRect().top + window.pageYOffset;
+
+        window.scrollTo({
+            top: formPosition + -50
+        });
+    }
+    
     function updateNavigationButtons() {
         const dataToUse = filteredRoomsData.length > 0 ? filteredRoomsData : roomsData;
         if(prevButton && nextButton) {
@@ -577,6 +606,7 @@ document.addEventListener('DOMContentLoaded', function () {
             currentIndex++;
             renderRoom(currentIndex, dataToUse);
         }
+        scrollToTop();
         updateNavigationButtons(); 
     }
     
@@ -587,6 +617,7 @@ document.addEventListener('DOMContentLoaded', function () {
             currentIndex--;
             renderRoom(currentIndex, dataToUse);
         }
+        scrollToTop();
         updateNavigationButtons();
     }
     
@@ -634,12 +665,14 @@ document.addEventListener('DOMContentLoaded', function () {
     
     function openLightbox(images, lightbox, lightboxImg, lightBoxCounter) {
         lightbox.style.display = "flex";
+        document.body.classList.add('modal-open');
         lightboxImg.src = images[currentImageIndex].url;
         lightBoxCounter.innerText = `${currentImageIndex + 1} / ${images.length}`;
     }
     
     function closeLightbox(lightbox) {
         lightbox.style.display = "none";
+        document.body.classList.remove('modal-open');
     }
         
     function changeImage(direction, images, lightboxImg, lightBoxCounter) {
@@ -658,10 +691,12 @@ document.addEventListener('DOMContentLoaded', function () {
         
         const roomImages = document.querySelectorAll('.room-img');
         roomImages.forEach((img, index) => {
-            img.addEventListener('click', () => {
-                currentImageIndex = index;
-                openLightbox(images, lightbox, lightboxImg, lightBoxCounter);
-            });
+            if (!img.classList.contains('placeholder-img')) {
+                img.addEventListener('click', () => {
+                    currentImageIndex = index;
+                    openLightbox(images, lightbox, lightboxImg, lightBoxCounter);
+                });
+            }
         });
     
         if (lightbox && closeBtn && prevBtn && nextBtn) {
@@ -669,6 +704,12 @@ document.addEventListener('DOMContentLoaded', function () {
             prevBtn.addEventListener('click', () => changeImage(-1, images, lightboxImg, lightBoxCounter));
             nextBtn.addEventListener('click', () => changeImage(1, images, lightboxImg, lightBoxCounter));
         }
+        
+        lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox) {
+                closeLightbox(lightbox);
+            }
+        });
         
         if (lightbox && images && lightboxImg && lightBoxCounter) {
             setupSwipeEvents(lightbox, images, lightboxImg, lightBoxCounter);
@@ -702,11 +743,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     
     function checkScrollPosition() {
-        const selectRoomForm = document.getElementById('select-room-form');
-        const formRect = selectRoomForm.getBoundingClientRect();
         const bookingForm = document.getElementById('booking-form');
         
-        if (formRect.bottom < 0 || formRect.top > window.innerHeight || bookingForm) {
+        if (bookingForm) {
             prevButton.style.display = 'none';
             nextButton.style.display = 'none';
         } else {
@@ -783,10 +822,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (msgModal && window.location.href.includes('booking_status=success')) {
         msgModal.classList.add('show');
         setTimeout(() => {
-            console.log("Delayed for 4 seconds.");
             msgModal.classList.remove('show');
-            
-        }, 4000);
+            window.location.href = window.location.origin;
+        }, 6000);
     }
     
 });

@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let tabContents = document.querySelectorAll('.tab-content');
     let addRoomTab = document.getElementById('add-room-tab');
     let toggleButtons = document.querySelectorAll('.toggle-details');
+    let calendarCheckBox = document.getElementById('save_to_google_calendar');
     
     if (window.location.search.includes('page=manage-rooms')) {
         const activeTab = localStorage.getItem('activeTab');
@@ -249,7 +250,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
                 fetchAmenities(roomId, roomAmenities);
                 updateRoomImages(roomId);
-    
+                fetchBeds(roomId);
+                
                 openModal();
     
                 document.querySelector('.close-button').addEventListener('click', function() {
@@ -306,6 +308,34 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    function fetchBeds(roomId) {
+        fetch('/wp-admin/admin-ajax.php?action=fetch_beds&room_id=' + roomId)
+        .then(response => response.json())
+        .then(data => {
+            let bedContainer = document.getElementById('edit-bed-container');
+            bedContainer.innerHTML = '';
+
+            if (data.beds && Array.isArray(data.beds)) {
+                data.beds.forEach(function(bed, index) {
+                    let bedRow = document.createElement('div');
+                    bedRow.classList.add('bed-row');
+                    bedRow.innerHTML = `
+                        <label for="bed_type_${index}">Bed Type</label>
+                        <input type="text" id="bed_type_${index}" name="beds[${index}][type]" value="${bed.bed_type}" placeholder="e.g., Single Bed">
+                        <label for="bed_count_${index}">Count</label>
+                        <input type="number" id="bed_count_${index}" name="beds[${index}][count]" value="${bed.bed_count}" min="1">
+                    `;
+                    bedContainer.appendChild(bedRow);
+                });
+            } else {
+                bedContainer.innerHTML = '<p>No beds found for this room.</p>';
+            }
+        })
+        .catch(error => {
+            // console.error('Error fetching bed details:', error);
+        });
+    }
+    
     function openModal() {
         document.querySelector('.modal-overlay').style.display = 'block';
         document.getElementById('edit-room-modal').style.display = 'block';
@@ -315,6 +345,30 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('.modal-overlay').style.display = 'none';
         document.getElementById('edit-room-modal').style.display = 'none';
     }
+    
+    function toggleCalendarSettings() {
+        const checkbox = document.getElementById('save_to_google_calendar');
+        const fields = [
+            'calendar_api_key',
+            'calendar_id',
+            'calendar_timezones'
+        ];
+    
+        fields.forEach(function(fieldId) {
+            let field = document.querySelector(`[name="booking_settings[${fieldId}]"]`);
+            if (field) {
+                field.disabled = !checkbox.checked;
+            }
+        });
+    }
+    
+    if(calendarCheckBox) {
+        calendarCheckBox.addEventListener("click" , (e) => {
+            e.preventDefault();
+            toggleCalendarSettings();
+        })
+    }
+    
     
     
 });

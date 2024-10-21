@@ -217,6 +217,65 @@ function create_room_amenities_relation_table() {
     }
 }
 
+function create_beds_table() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'reservemate_beds';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            bed_type varchar(255) NOT NULL,
+            PRIMARY KEY (id)
+        ) $charset_collate;";
+        
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+        insert_predefined_beds();
+    }
+}
+
+function insert_predefined_beds() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'reservemate_beds';
+
+    $beds = [
+        'Single Bed',
+        'Double Bed',
+        'Queen Bed',
+        'King Bed',
+        'Sofa Bed',
+        'Bunk Bed',
+    ];
+
+    foreach ($beds as $bed) {
+        $wpdb->insert($table_name, ['bed_type' => $bed]);
+    }
+}
+
+function create_room_beds_relation_table() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'reservemate_room_beds';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            room_id mediumint(9) NOT NULL,
+            bed_id mediumint(9) NOT NULL,
+            bed_count mediumint(9) NOT NULL,
+            PRIMARY KEY (id),
+            KEY room_id (room_id),
+            KEY bed_id (bed_id),
+            FOREIGN KEY (room_id) REFERENCES {$wpdb->prefix}reservemate_rooms(id) ON DELETE CASCADE,
+            FOREIGN KEY (bed_id) REFERENCES {$wpdb->prefix}reservemate_beds(id) ON DELETE CASCADE
+        ) $charset_collate;";
+
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+    }
+}
+
 function create_bookings_table() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'reservemate_bookings';
@@ -234,6 +293,7 @@ function create_bookings_table() {
             end_date date NOT NULL,
             total_cost decimal(10, 2) NOT NULL DEFAULT 0.00,
             paid tinyint(1) NOT NULL DEFAULT 0,
+            created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             FOREIGN KEY (room_id) REFERENCES {$wpdb->prefix}reservemate_rooms(id) ON DELETE CASCADE
         ) $charset_collate;";
@@ -412,6 +472,37 @@ function ajax_fetch_amenities() {
     wp_die();
 }
 
+function ajax_fetch_beds() {
+    global $wpdb;
+
+    $room_id = intval($_GET['room_id']);
+
+    $predefined_beds = get_predefined_beds();
+
+    $selected_beds = $wpdb->get_results($wpdb->prepare(
+        "SELECT bed_type, bed_count FROM {$wpdb->prefix}reservemate_room_beds WHERE room_id = %d",
+        $room_id
+    ), ARRAY_A);
+
+    $selected_beds_data = [];
+    foreach ($selected_beds as $bed) {
+        $selected_beds_data[$bed['bed_type']] = [
+            'count' => intval($bed['bed_count']),
+        ];
+    }
+
+    $response = [];
+    foreach ($predefined_beds as $type => $name) {
+        $response['beds'][] = [
+            'type' => $type,
+            'count' => isset($selected_beds_data[$type]) ? $selected_beds_data[$type]['count'] : 0,
+        ];
+    }
+
+    echo json_encode($response);
+    wp_die();
+}
+
 function load_room_callback() {
     global $wpdb;
 
@@ -453,6 +544,21 @@ function load_room_callback() {
         $room_id = $room->id;
         $room_images = get_room_pictures($room_id);
         $room_amenities = get_all_room_amenities($room_id);
+
+        $bed_details = $wpdb->get_results($wpdb->prepare(
+            "SELECT b.bed_type, rb.bed_count 
+             FROM {$wpdb->prefix}reservemate_room_beds rb 
+             JOIN {$wpdb->prefix}reservemate_beds b ON rb.bed_id = b.id 
+             WHERE rb.room_id = %d",
+            $room_id
+        ));
+        
+        $beds = array_map(function($bed) {
+            return [
+                'bed_type' => $bed->bed_type,
+                'bed_count' => intval($bed->bed_count)
+            ];
+        }, $bed_details);
     
         $images = array_map(function($img) {
             return [
@@ -493,6 +599,7 @@ function load_room_callback() {
             'size' => $room->size,
             'max_guests' => $room->max_guests,
             'amenities' => $amenities,
+            'beds' => $beds,
             'total_cost' => $days_booked * floatval($room->cost_per_day)
         ];
     }
@@ -574,6 +681,34 @@ function enqueue_payment_scripts() {
     wp_localize_script('script', 'paymentSettings', $payment_settings);
 }
 
+function booking_auto_cleanup() {
+    if (!wp_next_scheduled('reservemate_cleanup_unpaid_bookings')) {
+        wp_schedule_event(time(), 'daily', 'reservemate_cleanup_unpaid_bookings');
+    }
+}
+
+function delete_unpaid_bookings() {
+    global $wpdb;
+    $options = get_option('booking_settings');
+    
+    if (isset($options['auto_delete_booking_enabled']) && $options['auto_delete_booking_enabled'] == 1) {
+        $days = isset($options['delete_after_days']) ? absint($options['delete_after_days']) : 6;
+        $table_name = $wpdb->prefix . 'reservemate_bookings';
+
+        $date_threshold = date('Y-m-d H:i:s', strtotime("-$days days"));
+
+        error_log('Date threshold: ' . $date_threshold);
+
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM $table_name WHERE paid = 0 AND created_at < %s",
+                $date_threshold
+            )
+        );
+    }
+}
+
+
 add_action('wp_ajax_get_filter_data', 'get_filter_data');
 add_action('wp_ajax_nopriv_get_filter_data', 'get_filter_data');
 add_action('wp_enqueue_scripts', 'enqueue_ajax_scripts');
@@ -587,6 +722,9 @@ add_action('wp_enqueue_scripts', 'enqueue_booking_form_scripts');
 add_action('wp_ajax_get_room_images', 'ajax_get_room_images');
 add_action('wp_ajax_delete_room_image', 'ajax_delete_room_image');
 add_action('wp_ajax_fetch_amenities', 'ajax_fetch_amenities');
+add_action('wp_ajax_fetch_beds', 'ajax_fetch_beds');
+add_action('reservemate_cleanup_unpaid_bookings', 'delete_unpaid_bookings');
+add_action('wp', 'booking_auto_cleanup');
 add_action('wp_footer', 'initialize_date_picker');
 add_action('wp_enqueue_scripts', 'enqueue_stripe_scripts');
 add_action('wp_enqueue_scripts', 'enqueue_paypal_scripts');
@@ -596,6 +734,8 @@ add_action('wp_enqueue_scripts', 'enqueue_payment_scripts');
 register_activation_hook(__FILE__, 'create_amenities_table');
 register_activation_hook(__FILE__, 'create_rooms_table');
 register_activation_hook(__FILE__, 'create_room_images_table');
+register_activation_hook(__FILE__, 'create_beds_table');
 register_activation_hook(__FILE__, 'create_room_amenities_relation_table');
+register_activation_hook(__FILE__, 'create_room_beds_relation_table');
 register_activation_hook(__FILE__, 'create_bookings_table');
 

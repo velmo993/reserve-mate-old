@@ -2,18 +2,16 @@
 // Prevent direct access
 defined('ABSPATH') or die('No script please!');
 
-// Add "Booking Settings" menu and submenus
 function add_admin_menu() {
-    // Add the main menu page
     add_menu_page(
         'Booking System Settings',
-        'Booking Settings',          
+        'Reserve Mate',          
         'manage_options',             
         'booking-settings',           
-        'booking_settings_page'       
+        'booking_settings_page',
+        'dashicons-calendar-alt'
     );
 
-    // Add "Settings" submenu under "Booking Settings"
     add_submenu_page(
         'booking-settings', 
         'Settings',
@@ -23,7 +21,6 @@ function add_admin_menu() {
         'booking_settings_page'       
     );
     
-    // Add "Payment Settings" submenu under "Settings"
     add_submenu_page(
         'booking-settings', 
         'Payment Settings', 
@@ -33,7 +30,6 @@ function add_admin_menu() {
         'payment_settings_page'
     );
 
-    // Add "Manage Rooms" submenu under "Booking Settings"
     add_submenu_page(
         'booking-settings', 
         'Manage Rooms', 
@@ -43,7 +39,6 @@ function add_admin_menu() {
         'manage_rooms_page'           
     );
 
-    // Add "Manage Bookings" submenu under "Booking Settings"
     add_submenu_page(
         'booking-settings', 
         'Manage Bookings', 
@@ -52,17 +47,33 @@ function add_admin_menu() {
         'manage-bookings',
         'display_manage_bookings_page'
     );
+    
+    add_submenu_page(
+        'booking-settings', 
+        'Manage Messages', 
+        'Manage Messages',
+        'manage_options', 
+        'manage-messages',
+        'manage_messages_page'
+    );
 }
 
-// Register and display booking settings
+
 function register_booking_settings() {
     register_setting('booking_settings_group', 'booking_settings', array(
         'sanitize_callback' => 'sanitize_booking_settings'
     ));
 
     add_settings_section(
-        'general_settings',
-        'General Settings',
+        'horizontal_line_before_google',
+        '',
+        'display_horizontal_line',
+        'booking-settings'
+    );
+    
+    add_settings_section(
+        'google_calendar_settings',
+        'Google Calendar',
         null,
         'booking-settings'
     );
@@ -72,7 +83,7 @@ function register_booking_settings() {
         'Google Calendar API Credentials (JSON)',
         'display_calendar_api_key_field',
         'booking-settings',
-        'general_settings'
+        'google_calendar_settings'
     );
     
     add_settings_field(
@@ -80,7 +91,7 @@ function register_booking_settings() {
         'Google Calendar ID',
         'display_calendar_id_field',
         'booking-settings',
-        'general_settings'
+        'google_calendar_settings'
     );
     
     add_settings_field(
@@ -88,7 +99,21 @@ function register_booking_settings() {
         'Calendar Timezone',
         'display_calendar_timezones',
         'booking-settings',
-        'general_settings'
+        'google_calendar_settings'
+    );
+    
+    add_settings_section(
+        'horizontal_line_before_bookings',
+        '',
+        'display_horizontal_line',
+        'booking-settings'
+    );
+    
+    add_settings_section(
+        'booking_settings',
+        'Bookings',
+        null,
+        'booking-settings'
     );
     
     add_settings_field(
@@ -96,7 +121,7 @@ function register_booking_settings() {
         'Currency',
         'display_currency_field',
         'booking-settings',
-        'general_settings'
+        'booking_settings'
     );
     
     add_settings_field(
@@ -104,7 +129,7 @@ function register_booking_settings() {
         'Check-In Time',
         'display_check_in_time',
         'booking-settings',
-        'general_settings'
+        'booking_settings'
     );
     
     add_settings_field(
@@ -112,17 +137,40 @@ function register_booking_settings() {
         'Check-Out Time',
         'display_check_out_time',
         'booking-settings',
-        'general_settings'
+        'booking_settings'
+    );
+    
+    add_settings_field(
+        'auto_delete_booking_enabled',
+        'Automatically delete unpaid bookings',
+        'display_auto_delete_booking_field',
+        'booking-settings',
+        'booking_settings'
+    );
+    
+    add_settings_field(
+        'delete_after_days',
+        'Number of days before deletion',
+        'display_delete_after_days_field',
+        'booking-settings',
+        'booking_settings'
     );
     
 }
 
-// Register and display payment settings
+
 function register_payment_settings() {
     register_setting('payment_settings_group', 'payment_settings', array(
         'sanitize_callback' => 'sanitize_payment_settings'
     ));
 
+    add_settings_section(
+        'horizontal_line_before_stripe',
+        '',
+        'display_horizontal_line',
+        'payment-settings'
+    );
+    
     add_settings_section(
         'stripe_settings',
         'Stripe Settings',
@@ -152,6 +200,13 @@ function register_payment_settings() {
         'display_stripe_public_key_field',
         'payment-settings',
         'stripe_settings'
+    );
+    
+    add_settings_section(
+        'horizontal_line_before_paypal',
+        '',
+        'display_horizontal_line',
+        'payment-settings'
     );
     
     add_settings_section(
@@ -225,6 +280,52 @@ function register_payment_settings() {
     // );
 }
 
+function register_message_settings() {
+    register_setting('message_settings_group', 'message_settings', array(
+        'sanitize_callback' => 'sanitize_message_settings'
+    ));
+
+    add_settings_section(
+        'booking_messages',
+        'Booking Messages',
+        null,
+        'manage-messages'
+    );
+
+    add_settings_field(
+        'booking_success_message',
+        'Booking Successful Message',
+        'display_booking_success_message_field',
+        'manage-messages',
+        'booking_messages'
+    );
+    
+    add_settings_field(
+        'send_email_to_clients',
+        'Send Email to Clients',
+        'display_send_email_to_clients_field',
+        'manage-messages',
+        'booking_messages'
+    );
+
+    add_settings_field(
+        'client_email_subject',
+        'Email Subject',
+        'display_client_email_subject_field',
+        'manage-messages',
+        'booking_messages'
+    );
+    
+    add_settings_field(
+        'client_email_content',
+        'Email Content',
+        'display_client_email_content_field',
+        'manage-messages',
+        'booking_messages'
+    );
+
+}
+
 function booking_settings_page() {
     ?>
     <div class="wrap">
@@ -256,6 +357,74 @@ function payment_settings_page() {
         </form>
     </div>
     <?php
+}
+
+function manage_messages_page() {
+    ?>
+    <div class="wrap">
+        <?php if (isset($_GET['settings-updated']) && $_GET['settings-updated']) {
+            echo '<div class="notice notice-success is-dismissible"><p>Messages updated successfully.</p></div>';
+        } ?>
+        <h1>Manage Messages</h1>
+        <form method="post" action="options.php">
+            <?php
+            settings_fields('message_settings_group');
+            do_settings_sections('manage-messages');
+            submit_button('Save Messages');
+            ?>
+        </form>
+    </div>
+    <?php
+}
+
+function display_booking_success_message_field() {
+    $message = get_option('message_settings')['booking_success_message'] ?? '';
+    ?>
+    <textarea name="message_settings[booking_success_message]" rows="5" cols="50"><?php echo esc_textarea($message); ?></textarea>
+    <p class="description">Enter the message shown after a successful booking.</p>
+    <?php
+}
+
+function display_send_email_to_clients_field() {
+    $message_settings = get_option('message_settings');
+    $send_email_to_clients = isset($message_settings['send_email_to_clients']) ? $message_settings['send_email_to_clients'] : 0;
+    
+    echo '<input type="checkbox" name="message_settings[send_email_to_clients]" value="1"' . checked(1, $send_email_to_clients, false) . '> Send an email to the client after successfull booking.';
+}
+
+function display_client_email_subject_field() {
+    $message_settings = get_option('message_settings');
+    $client_email_subject = $message_settings['client_email_subject'] ?? 'Booking Confirmation';
+    
+    echo '<input type="text" name="message_settings[client_email_subject]" value="' . esc_attr($client_email_subject) . '" class="regular-text">';
+}
+
+function display_client_email_content_field() {
+    $message = get_option('message_settings')['client_email_content'] ?? '';
+    ?>
+    <textarea name="message_settings[client_email_content]" rows="5" cols="50"><?php echo esc_textarea($message); ?></textarea>
+    <p class="description">Enter the message sent to the client after booking.</p>
+    <?php
+}
+
+function sanitize_message_settings($input) {
+    $sanitized = array();
+
+    if (isset($input['booking_success_message'])) {
+        $sanitized['booking_success_message'] = wp_kses_post($input['booking_success_message']);
+    }
+
+    if (isset($input['client_email_content'])) {
+        $sanitized['client_email_content'] = wp_kses_post($input['client_email_content']);
+    }
+
+    if (isset($input['client_email_subject'])) {
+        $sanitized['client_email_subject'] = sanitize_text_field($input['client_email_subject']);
+    }
+    
+    $sanitized['send_email_to_client'] = isset($input['send_email_to_client']) ? 1 : 0;
+
+    return $sanitized;
 }
 
 function display_stripe_enabled_field() {
@@ -344,6 +513,7 @@ function manage_rooms_page() {
         $child_price = isset($_POST['child_price']) ? floatval($_POST['child_price']) : 0.00;
         $size = isset($_POST['size']) ? sanitize_text_field($_POST['size']) : '';
         $amenities = isset($_POST['amenities']) ? $_POST['amenities'] : [];
+        $beds = isset($_POST['beds']) ? $_POST['beds'] : [];
         
         if (isset($_POST['add_room'])) {
             handle_room_insert($_POST);
@@ -355,12 +525,17 @@ function manage_rooms_page() {
             add_amenity($_POST['new_amenity']);
         } elseif (isset($_POST['delete_amenity'])) {
             delete_amenity($_POST['delete_amenity']);
+        } elseif (isset($_POST['add_bed'])) {
+            add_bed($_POST['new_bed']);
+        } elseif (isset($_POST['delete_bed'])) {
+            delete_bed($_POST['delete_bed']);
         }
     }
 
     render_tabs();
     render_add_room_form($currency_symbol);
     render_manage_amenities();
+    render_manage_beds();
     $rooms = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}reservemate_rooms");
     render_existing_rooms($rooms, $currency_symbol);
 }
@@ -383,8 +558,21 @@ function handle_room_insert($data) {
     $room_id = $wpdb->insert_id;
 
     if ($room_id) {
-        insert_room_amenities($room_id, $data['amenities']);
+        insert_room_amenities($room_id, isset($data['amenities']) ? $data['amenities'] : []);
+
         handle_image_upload($room_id);
+        
+        $beds = [];
+        if (isset($data['beds']) && is_array($data['beds'])) {
+            foreach ($data['beds'] as $bed_type) {
+                $bed_count = isset($data['bed_count'][$bed_type]) ? intval($data['bed_count'][$bed_type]) : 0;
+                if ($bed_count > 0) {
+                    $beds[$bed_type] = $bed_count;
+                }
+            }
+        }
+
+        insert_room_beds($room_id, $beds);
     }
 }
 
@@ -406,7 +594,7 @@ function handle_room_update($data) {
     $wpdb->update($table_name, $room_data, ['id' => intval($data['room_id'])]);
 
     update_room_amenities($data['room_id'], $data['amenities']);
-
+    update_room_beds($data['room_id'], $data['beds']);
     handle_image_upload($data['room_id']);
     
     if (!empty($data['remove_images'])) {
@@ -436,6 +624,46 @@ function insert_room_amenities($room_id, $amenities) {
     }
 }
 
+function add_bed($bed_type) {
+    global $wpdb;
+    $wpdb->insert($wpdb->prefix . 'reservemate_beds', ['bed_type' => sanitize_text_field($bed_type)]);
+}
+
+function delete_bed($bed_id) {
+    global $wpdb;
+    $wpdb->delete($wpdb->prefix . 'reservemate_beds', ['id' => intval($bed_id)]);
+}
+
+function insert_room_beds($room_id, $beds) {
+    global $wpdb;
+
+    if (!is_array($beds)) {
+        return;
+    }
+
+    foreach ($beds as $bed_type => $count) {
+        $bed_type = sanitize_text_field($bed_type);
+        $count = intval($count);
+
+        if ($count > 0) {
+            $bed_id = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}reservemate_beds WHERE bed_type = %s",
+                $bed_type
+            ));
+
+            if ($bed_id) {
+                $wpdb->insert($wpdb->prefix . 'reservemate_room_beds', [
+                    'room_id' => $room_id,
+                    'bed_id' => intval($bed_id),
+                    'bed_count' => $count
+                ]);
+            } else {
+                error_log('Invalid bed data: ' . $bed_type);
+            }
+        }
+    }
+}
+
 function update_room_amenities($room_id, $amenities = []) {
     global $wpdb;
     $room_amenities_table = $wpdb->prefix . 'reservemate_room_amenities';
@@ -448,6 +676,31 @@ function update_room_amenities($room_id, $amenities = []) {
                 'room_id' => $room_id,
                 'amenity_id' => intval($amenity_id)
             ]);
+        }
+    }
+}
+
+function update_room_beds($room_id, $beds = []) {
+    global $wpdb;
+    $room_beds_table = $wpdb->prefix . 'reservemate_room_beds';
+
+    $wpdb->delete($room_beds_table, ['room_id' => $room_id]);
+
+    if (!empty($beds) && is_array($beds)) {
+        foreach ($beds as $bed) {
+            $bed_type = sanitize_text_field($bed['type']);
+            $bed_id = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}reservemate_beds WHERE bed_type = %s",
+                $bed_type
+            ));
+
+            if ($bed_id) {
+                $wpdb->insert($room_beds_table, [
+                    'room_id' => $room_id,
+                    'bed_id' => intval($bed_id),
+                    'bed_count' => intval($bed['count'])
+                ]);
+            }
         }
     }
 }
@@ -498,6 +751,7 @@ function render_tabs() {
         <div class="tabs">
             <button class="tab-button active" data-target="#add-room-tab">Add New Room</button>
             <button class="tab-button" data-target="#existing-rooms-tab">Existing Rooms</button>
+            <button class="tab-button" data-target="#manage-beds-tab">Manage Beds</button>
             <button class="tab-button" data-target="#manage-amenities-tab">Manage Amenities</button>
         </div>
     </div>
@@ -540,6 +794,10 @@ function render_add_room_form($currency_symbol) {
                     <td><input name="size" type="text" id="size" class="regular-text"></td>
                 </tr>
                 <tr valign="top">
+                    <th scope="row"><label for="beds">Beds</label></th>
+                    <td><?php display_bed_types([]); ?></td>
+                </tr>
+                <tr valign="top">
                     <th scope="row"><label for="amenities">Amenities</label></th>
                     <td><?php display_amenities_checkboxes([]); ?></td>
                 </tr>
@@ -579,6 +837,7 @@ function render_existing_rooms($rooms, $currency_symbol) {
                 <?php if ($rooms) : ?>
                     <?php foreach ($rooms as $room) : ?>
                         <?php $amenities = get_room_amenities($room->id); ?>
+                        <?php $beds = get_room_beds($room->id); ?>
                         <tr class="room-summary">
                             <td colspan="2"><?php echo esc_html($room->id); ?></td>
                             <td colspan="4"><?php echo esc_html($room->name); ?></td>
@@ -598,7 +857,8 @@ function render_existing_rooms($rooms, $currency_symbol) {
                                                 data-cost-per-day="<?php echo esc_attr($room->cost_per_day); ?>"
                                                 data-adult-price="<?php echo esc_attr($room->adult_price); ?>"
                                                 data-child-price="<?php echo esc_attr($room->child_price); ?>"
-                                                data-room-size="<?php echo esc_attr($room->size); ?>" 
+                                                data-room-size="<?php echo esc_attr($room->size); ?>"
+                                                data-beds="<?php echo esc_attr(json_encode($beds)); ?>"
                                                 data-amenities="<?php echo esc_attr(json_encode($amenities)); ?>">Edit</a>
                                         </li>
                                         <li>
@@ -619,6 +879,20 @@ function render_existing_rooms($rooms, $currency_symbol) {
                                     <div class="table-details-flex"><strong>Price per Adult:</strong><span class="room-data"><?php echo esc_html($room->adult_price . ' ' . $currency_symbol); ?></span></div>
                                     <div class="table-details-flex"><strong>Price per Child:</strong><span class="room-data"><?php echo esc_html($room->child_price . ' ' . $currency_symbol); ?></span></div>
                                     <div class="table-details-flex"><strong>Size:</strong><span class="room-data"><?php echo esc_html($room->size) . 'm&sup2;'; ?></span></div>
+                                    <div class="table-details-flex">
+                                        <strong>Beds:</strong>
+                                        <div class="room-data">
+                                            <?php if ($beds): ?>
+                                                <ul>
+                                                    <?php foreach ($beds as $bed_type => $count) : ?>
+                                                        <li><?php echo esc_html($count . ' ' . $bed_type); ?></li>
+                                                    <?php endforeach; ?>
+                                                </ul>
+                                            <?php else : ?>
+                                                <span>No beds selected</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
                                     <div class="table-details-flex">
                                         <strong>Amenities:</strong>
                                         <div class="room-data">
@@ -747,12 +1021,46 @@ function render_manage_amenities() {
                             <form method="post">
                                 <input type="hidden" name="delete_amenity_id" value="<?php echo $amenity->id; ?>">
                                 <button type="submit" name="delete_amenity" class="delete-button">x</button>
-                                <span><?php echo $amenity->amenity_name; ?></span>
+                                <span><?php echo esc_html($amenity->amenity_name); ?></span>
                             </form>
                         </li>
                     <?php endforeach;
                 else: ?>
                     <li>No amenities available</li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    </div>
+    <?php
+}
+
+function render_manage_beds() {
+    global $wpdb;
+    ?>
+    <div id="manage-beds-tab" class="tab-content">
+        <div class="add-bed">
+            <h2>Add New Bed Type</h2>
+            <form method="post">
+                <input type="text" name="new_bed" placeholder="Enter bed type" required>
+                <button type="submit" name="add_bed" class="button-primary">Add Bed</button>
+            </form>
+        
+            <h3>Existing Bed Types</h3>
+            <ul>
+                <?php
+                $existing_beds = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}reservemate_beds ORDER BY bed_type ASC");
+                if ($existing_beds):
+                    foreach ($existing_beds as $bed): ?>
+                        <li>
+                            <form method="post">
+                                <input type="hidden" name="delete_bed_id" value="<?php echo $bed->id; ?>">
+                                <button type="submit" name="delete_bed" class="delete-button">x</button>
+                                <span><?php echo esc_html($bed->bed_type); ?></span>
+                            </form>
+                        </li>
+                    <?php endforeach;
+                else: ?>
+                    <li>No bed types available</li>
                 <?php endif; ?>
             </ul>
         </div>
@@ -907,6 +1215,22 @@ function get_predefined_amenities() {
     return $amenities;
 }
 
+function get_predefined_beds() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'reservemate_beds';
+
+    $results = $wpdb->get_results("SELECT id, bed_type FROM $table_name", ARRAY_A);
+
+    $beds = [];
+    if ($results) {
+        foreach ($results as $bed) {
+            $beds[$bed['id']] = $bed['bed_type'];
+        }
+    }
+
+    return $beds;
+}
+
 function get_room_amenities($room_id) {
     global $wpdb;
     $results = $wpdb->get_col($wpdb->prepare(
@@ -916,6 +1240,24 @@ function get_room_amenities($room_id) {
         $room_id
     ));
     return $results ? $results : [];
+}
+
+function get_room_beds($room_id) {
+    global $wpdb;
+    $results = $wpdb->get_results($wpdb->prepare(
+        "SELECT b.bed_type, rb.bed_count 
+         FROM {$wpdb->prefix}reservemate_beds b
+         JOIN {$wpdb->prefix}reservemate_room_beds rb ON b.id = rb.bed_id
+         WHERE rb.room_id = %d",
+        $room_id
+    ));
+
+    $beds = [];
+    foreach ($results as $row) {
+        $beds[$row->bed_type] = intval($row->bed_count);
+    }
+    
+    return $beds;
 }
 
 function save_room_amenities($room_id) {
@@ -999,10 +1341,64 @@ function display_amenities_checkboxes($room_id = null) {
     }
 }
 
+function display_bed_types($room_id = null) {
+    global $wpdb;
+
+    $bed_types = get_predefined_beds(); 
+    $selected_beds = [];
+    
+    if ($room_id) {
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT bed_type, bed_count FROM {$wpdb->prefix}reservemate_room_beds WHERE room_id = %d",
+            $room_id
+        ));
+        foreach ($results as $row) {
+            $selected_beds[$row->bed_type] = $row->bed_count;
+        }
+    }
+
+    echo '<h3>Select Bed Types:</h3>';
+    foreach ($bed_types as $bed_type) {
+        $number_of_beds = isset($selected_beds[$bed_type]) ? $selected_beds[$bed_type] : 0;
+
+        echo '<label style="display: flex; width: 160px; align-items: center;">';
+        echo '<input type="checkbox" name="beds[' . esc_attr($bed_type) . ']" value="' . esc_attr($bed_type) . '" ' . ($number_of_beds > 0 ? 'checked' : '') . ' style="margin-right: 7px;"> ';
+        echo esc_html($bed_type) . ' <input type="number" name="bed_count[' . esc_attr($bed_type) . ']" value="' . esc_attr($number_of_beds) . '" min="0" style="width: 50px; margin-left: auto;">';
+        echo '</label><br>';
+    }
+}
+
 function sanitize_booking_settings($input) {
     if (isset($input['calendar_api_key'])) {
         $input['calendar_api_key'] = fix_json($input['calendar_api_key']);
     }
+
+    if (isset($input['calendar_id'])) {
+        $input['calendar_id'] = sanitize_text_field($input['calendar_id']);
+    }
+
+    if (isset($input['currency'])) {
+        $input['currency'] = sanitize_text_field($input['currency']);
+    }
+
+    if (isset($input['checkin_time'])) {
+        $input['checkin_time'] = sanitize_text_field($input['checkin_time']);
+    }
+
+    if (isset($input['checkout_time'])) {
+        $input['checkout_time'] = sanitize_text_field($input['checkout_time']);
+    }
+
+    if (isset($input['auto_delete_booking_enabled'])) {
+        $input['auto_delete_booking_enabled'] = 1;
+    } else {
+        $input['auto_delete_booking_enabled'] = 0;
+    }
+
+    if (isset($input['delete_after_days']) && $input['auto_delete_booking_enabled'] == 1) {
+        $input['delete_after_days'] = absint($input['delete_after_days']);
+    }
+
     return $input;
 }
 
@@ -1080,9 +1476,26 @@ function generate_time_options($selected_time) {
     }
 }
 
+function display_auto_delete_booking_field() {
+    $options = get_option('booking_settings');
+    $checked = isset($options['auto_delete_booking_enabled']) && $options['auto_delete_booking_enabled'] == 1 ? 'checked' : '';
+    echo '<input type="checkbox" name="booking_settings[auto_delete_booking_enabled]" value="1" ' . $checked . '> Enable';
+}
+
+function display_delete_after_days_field() {
+    $options = get_option('booking_settings');
+    $days = isset($options['delete_after_days']) && $options['auto_delete_booking_enabled'] == 1 ? esc_attr($options['delete_after_days']) : '';
+    echo '<input type="number" style="width: 50px;" name="booking_settings[delete_after_days]" value="' . $days . '" min="1">';
+}
+
+function display_horizontal_line() {
+    echo '<hr style="margin: 20px 0;">';
+}
+
 
 
 add_action('admin_menu', 'add_admin_menu');
 add_action('admin_init', 'register_booking_settings');
 add_action('admin_init', 'register_payment_settings');
+add_action('admin_init', 'register_message_settings');
 

@@ -6,6 +6,8 @@ require_once(plugin_dir_path(__FILE__) . 'payments.php');
 
 function display_search_form() {
     $error_message = '';
+    $message_settings = get_option('message_settings');
+    $booking_success_message = $message_settings['booking_success_message'] ?? '<h2>Booking Successful!</h2><p>Thank you for your reservation. We look forward to welcoming you!</p>';
     
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($_POST['start-date']) || empty($_POST['end-date'])) {
@@ -31,8 +33,7 @@ function display_search_form() {
                     <circle cx="12" cy="12" r="10"></circle>
                 </svg>
             </div>
-            <h2>Booking Successful!</h2>
-            <p>Thank you for your reservation. We look forward to welcoming you!</p>
+            <?php echo wp_kses_post($booking_success_message); ?>
         </div>
     </div>
     <form id="search-room-form" method="post">
@@ -62,7 +63,7 @@ function display_search_form() {
         </div>
         
         <div class="form-field">
-            <input id="search-room-btn" type="submit" value="Search Rooms">
+            <input id="search-room-btn" type="submit" value="Check Availability">
         </div>
     </form>
 
@@ -176,7 +177,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id']) && isset($
     if (isset($_POST['stripeToken'])) {
         $payment_result = process_payment($_POST, $total_cost, $currency);
         $payment_success = $payment_result['success'];
-        $payment_error = $payment_result['message'];
+        if(!$payment_success) {
+            $payment_error = $payment_result['message'];
+        }
     }
 
     if (isset($_POST['paypalPaymentID'])) {
@@ -186,12 +189,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id']) && isset($
     if ($payment_success) {
         save_booking_to_db($room_id, $name, $email, $phone, $adults, $children, $start_date, $end_date, $total_cost, (int)1);
         save_booking_to_calendar($room_id, $adults, $children, $start_date, $end_date, $name, $email);
+        send_success_email_to_client($name, $email);
 
         header('Location: ' . home_url() . '?booking_status=success');
     } else {
         echo json_encode(['success' => false, 'error' => $payment_error]);
     }
     exit;
+}
+
+function send_success_email_to_client($name, $email) {
+    if (isset($message_settings['send_email_to_client']) && $message_settings['send_email_to_client']) {
+        $client_name = $name;
+        $client_email =$email;
+    
+        $message_settings = get_option('message_settings');
+        $client_email_subject = $message_settings['client_email_subject'] ?? 'Booking Confirmation';
+        $client_email_content = $message_settings['client_email_content'] ?? 'Thank you for your booking! We will contact you soon.';
+    
+        // Optional: Replace placeholders with actual data
+        // $client_email_content = str_replace('%client_name%', $client_name, $client_email_content);
+        // $client_email_content = str_replace('%booking_details%', get_booking_details_as_text($booking_data), $client_email_content);
+    
+        $headers = array('Content-Type: text/html; charset=UTF-8');
+    
+        wp_mail($client_email, $client_email_subject, $client_email_content, $headers);
+    }
+        
 }
 
 function save_booking_to_db($room_id, $name, $email, $phone, $adults, $children, $start_date, $end_date, $total_cost, $paid = 0) {
@@ -357,7 +381,7 @@ function get_amenity_icon($amenity_key) {
         'pet_bedding' => 'fa fa-paw',
         'pet_friendly' => 'fa fa-paw',
         'pet_walking' => 'fa fa-dog',
-        'playground' => 'fa fa-swings',
+        'playground' => 'fa fa-futbol',
         'pool_bar' => 'fa fa-cocktail',
         'pool_view' => 'fa fa-swimming-pool',
         'private_pool' => 'fa fa-swimming-pool',
@@ -406,8 +430,22 @@ function enqueue_custom_styles() {
     ?>
     <style>
     
+    input[type="number"]::-webkit-inner-spin-button, 
+    input[type="number"]::-webkit-outer-spin-button { 
+        -webkit-appearance: none; 
+        margin: 0; 
+    }
+
+    input[type="number"] {
+        -moz-appearance: textfield;
+    }
+    
     .hidden {
         display: none;    
+    }
+    
+    body.modal-open {
+        overflow: hidden;
     }
     
     i.fa {
@@ -589,17 +627,21 @@ function enqueue_custom_styles() {
     }
     
     .filter-sort-controls {
+        position: absolute;
+        top: 1em;
+        z-index: 1;
+        width: 100%;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 2rem 0.2rem;
+        padding: 0 3.5rem 0 3.5rem
     }
     
     .filter-sort-controls button,
     .filter-sort-controls select {
         height: 40px;
         padding: 0 10px;
-        font-size: 16px;
+        font-size: 1em;
         border-radius: 10px;
     }
     
@@ -626,7 +668,7 @@ function enqueue_custom_styles() {
         display: flex;
         align-items: center; 
         justify-content: center;
-        width: 50%;
+        width: 35%;
         margin-left: 0.5rem;
     }
     
@@ -641,43 +683,47 @@ function enqueue_custom_styles() {
         justify-content: center;
         background: gray;
         margin-left: 0.5rem;
-        width: 50%;
+        width: 35%;
+    }
+    
+    #prev-room, #next-room {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        width: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.1);
+        z-index: 2;
+        cursor: pointer;
     }
     
     #prev-room {
-        position: fixed;
-        top: 50%;
         left: 0;
-        height: 10%;
-        justify-content: center;
-        align-items: center;
-        padding: 2px;
-        background: transparent;
-        z-index: 2;
+        border-radius: 1.5rem 0 0 1.5rem;
     }
-
+    
     #next-room {
-        position: fixed;
-        top: 50%;
         right: 0;
-        height: 10%;
-        justify-content: center;
-        align-items: center;
-        padding: 2px;
-        background: transparent;
-        z-index: 2;
+        border-radius: 0 1.5rem 1.5rem 0;
     }
     
     #prev-room i,
     #next-room i {
         font-size: 3rem;
-        color: #000;
+        color: #fff;
+        transform: scaleY(3);
     }
 
     #select-room-form {
         position: relative;
-        max-width: 80%;
+        max-width: 1100px;
         margin: 3rem auto;
+    }
+    
+    .form-wrap {
+        position: relative;
     }
     
     #select-room-form .form-wrap .available-room {
@@ -685,7 +731,7 @@ function enqueue_custom_styles() {
         align-items: center;
         flex-direction: column;
         margin-bottom: 3rem;
-        padding: 2rem;
+        padding: 5rem 2rem 2rem;
         background-color: #f9f9f9;
         border-radius: 1.5rem;
     }
@@ -697,8 +743,7 @@ function enqueue_custom_styles() {
     #select-room-form .form-wrap .available-room .room-name-submit {
         display: flex;
         width: 100%;
-        justify-content: space-around;
-        align-items: baseline;
+        align-items: center;
         padding: 1.8rem 1rem;
         font-size: 1.2rem;
         margin: auto;
@@ -760,9 +805,10 @@ function enqueue_custom_styles() {
     }
     
     #select-room-form .form-wrap .available-room label {
-        text-align: right;
-        font-size: 1.3rem;
+        text-align: center;
+        font-size: 1.1rem;
         font-weight: bold;
+        width: 60%;
     }
     
     #select-room-form .form-wrap .available-room .inline-flex {
@@ -803,7 +849,7 @@ function enqueue_custom_styles() {
     }
     
     #select-room-form #book-now-button {
-        margin: 0;
+        margin: 0 auto;
     }
     
     #select-room-form .single-room-container {
@@ -829,7 +875,7 @@ function enqueue_custom_styles() {
     #select-room-form .available-room-amenities li {
         position: relative;
         margin: 10px;
-        border: 1px solid gainsboro;
+        border: 1px solid #dcdcdc;
         border-radius: 1.5rem;
         width: auto;
         text-align: center;
@@ -843,43 +889,6 @@ function enqueue_custom_styles() {
         font-size: 1rem;
         padding: 0.4rem;
     }
-    
-    /*#select-room-form .available-room-amenities li span.amenity-name {*/
-    /*    display: none;*/
-    /*    position: absolute;*/
-    /*    bottom: 125%;*/
-    /*    left: 50%;*/
-    /*    transform: translateX(-50%);*/
-    /*    background-color: #333;*/
-    /*    color: #fff;*/
-    /*    padding: 5px;*/
-    /*    border-radius: 5px;*/
-    /*    white-space: nowrap;*/
-    /*    z-index: 10;*/
-    /*    opacity: 0;*/
-    /*    pointer-events: none;*/
-    /*    transition: opacity 0.3s ease, visibility 0.3s ease;*/
-    /*    visibility: hidden;*/
-    /*}*/
-    
-    /*#select-room-form .available-room-amenities li span.amenity-name::before {*/
-    /*    content: '';*/
-    /*    position: absolute;*/
-    /*    bottom: -5px;*/
-    /*    left: 50%;*/
-    /*    transform: translateX(-50%);*/
-    /*    border-width: 5px;*/
-    /*    border-style: solid;*/
-    /*    border-color: #333 transparent transparent transparent;*/
-    /*    z-index: 10;*/
-    /*}*/
-    
-    /*#select-room-form .available-room-amenities li i.active + span.amenity-name {*/
-    /*    display: inline-block;*/
-    /*    opacity: 1;*/
-    /*    pointer-events: auto;*/
-    /*    visibility: visible;*/
-    /*}*/
     
     #select-room-form .room-images {
         width: 100%;
@@ -916,6 +925,7 @@ function enqueue_custom_styles() {
     
     #select-room-form .room-size-guests {
         display: flex;
+        flex-wrap: wrap;
         border: 1px solid #e8e4e4;
         border-radius: 0 0 1.5rem 1.5rem;
     }
@@ -923,11 +933,29 @@ function enqueue_custom_styles() {
     #select-room-form .room-size-guests i {
         padding: 0 0.4rem;
     }
-    
-    #select-room-form .room-size-guests > * {
+
+    #select-room-form .room-size-guests .room-size,
+    #select-room-form .room-size-guests .room-max-guests {
         width: 50%;
         padding: 0.4rem;
         text-align: center;
+    }
+    
+    .room-beds {
+        display: flex;
+        justify-content: center;
+        padding: 0.4rem;
+        width: 100%;
+        flex-basis: 100%;
+        border-top: 1px solid #dcdcdc;
+    }
+    
+    .room-beds div {
+        padding: 0 0.4rem;
+    }
+    
+    .room-beds div:not(:first-child) {
+        border-left: 1px solid #dcdcdc;
     }
     
     #rooms-container {
@@ -984,10 +1012,10 @@ function enqueue_custom_styles() {
     
     .close {
         position: absolute;
-        top: 15px;
-        right: 35px;
+        top: 20%;
+        right: 1.2em;
         color: white;
-        font-size: 40px;
+        font-size: 3em;
         font-weight: bold;
         cursor: pointer;
     }
@@ -996,7 +1024,7 @@ function enqueue_custom_styles() {
         position: absolute;
         top: 50%;
         color: white;
-        font-size: 30px;
+        font-size: 3em;
         font-weight: bold;
         cursor: pointer;
         padding: 10px;
@@ -1004,11 +1032,11 @@ function enqueue_custom_styles() {
     }
     
     .prev {
-        left: 0;
+        left: 1em;
     }
     
     .next {
-        right: 0;
+        right: 1em;
     }
     
     .no-touch {
@@ -1047,7 +1075,6 @@ function enqueue_custom_styles() {
     input[type="range"]::-moz-range-thumb {
         width: 1px;
         height: 25px;
-        
         background: #4CAF50;
         border-radius: 40%;
         cursor: pointer;
@@ -1057,7 +1084,6 @@ function enqueue_custom_styles() {
     input[type="range"]::-ms-thumb {
         width: 1px;
         height: 25px;
-        
         background: #4CAF50;
         border-radius: 40%;
         cursor: pointer;
@@ -1167,7 +1193,7 @@ function enqueue_custom_styles() {
         }
         
         #select-room-form .form-wrap .available-room {
-            padding: 2rem 0;
+            padding: 5rem 0 2rem;
         }
         
         #select-room-form .form-wrap .available-room .room-name-submit {
@@ -1176,6 +1202,7 @@ function enqueue_custom_styles() {
             background: #f9f9f9;
             opacity: 1;
             z-index: 1;
+            padding: 1.8rem 2rem;
         }
         
         #select-room-form .room-img:nth-child(n+3) {
@@ -1183,11 +1210,37 @@ function enqueue_custom_styles() {
         }
         
         .filter-sort-controls {
-            padding-bottom: 0.2rem;
+            padding: 0 1.4rem 0.2rem 1.4rem;
+        }
+        
+        #filter-btn,
+        #reset-filters {
+            width: 50%;
         }
         
         .filter-content {
             height: 80%
+        }
+        
+        #prev-room, #next-room {
+            background: none;
+            padding: 0;
+            width: auto;
+        }
+        
+        #prev-room {
+            left: 5px;
+        }
+        
+        #next-room {
+            right: 5px;
+        }
+        
+        #prev-room i,
+        #next-room i {
+            font-size: 2rem;
+            color: #000;
+            transform: scaleY(1);
         }
         
         #payment-form {
