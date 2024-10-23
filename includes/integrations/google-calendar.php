@@ -3,7 +3,7 @@
 defined('ABSPATH') or die('No script please!');
 
 // Load the Google API client library
-require_once(plugin_dir_path(__FILE__) . 'google-api-client/vendor/autoload.php');
+require_once(plugin_dir_path(__FILE__) . '../api/google-api-client/vendor/autoload.php');
 
 function sync_with_google_calendar($event_details) {
     try {
@@ -11,6 +11,7 @@ function sync_with_google_calendar($event_details) {
         $options = get_option('booking_settings');
         $selected_timezone = isset($options['calendar_timezones']) ? $options['calendar_timezones'] : 'UTC';
         
+        // Check for required options
         if (!isset($options['calendar_api_key'])) {
             throw new Exception('Google Calendar API credentials not set.');
         }
@@ -53,19 +54,15 @@ function sync_with_google_calendar($event_details) {
                 'timeZone' => $selected_timezone,
             ),
             'reminders' => array(
-                'useDefault' => FALSE,
+                'useDefault' => false,
                 'overrides' => array(
-                    array('method' => 'email', 'minutes' => 24 * 60),
+                    array('method' => 'email', 'minutes' => 60), // Change minutes as needed
                     array('method' => 'popup', 'minutes' => 10),
                 ),
             )
         ));
 
-        // Debug: Log the event object to check its structure
-        // error_log('Event Object: ' . print_r($event, true));
-
         // Insert the event into the calendar
-        // $calendarId = '1a48b015cf5a51aecb06e738d4ca10e49ba4583bbd4ecbb4a83011695bcf226f@group.calendar.google.com'; // Replace with your calendar ID
         $createdEvent = $service->events->insert($calendarId, $event);
 
         // Log the created event details for debugging
@@ -75,8 +72,6 @@ function sync_with_google_calendar($event_details) {
     } catch (Exception $e) {
         // Detailed error logging
         // error_log('Google Calendar sync failed: ' . $e->getMessage());
-        // error_log('Event Details: ' . print_r($event_details, true));
-        // error_log('Request Payload: ' . (isset($event) ? json_encode($event) : 'Event object not created.'));
         return false;
     }
 }

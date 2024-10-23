@@ -1,8 +1,8 @@
 <?php
 defined('ABSPATH') or die('No script please!');
 
-require_once(plugin_dir_path(__FILE__) . 'google-calendar.php');
-require_once(plugin_dir_path(__FILE__) . 'payments.php');
+require_once(plugin_dir_path(__FILE__) . '../integrations/google-calendar.php');
+require_once(plugin_dir_path(__FILE__) . '../payments/payments.php');
 
 function display_search_form() {
     $error_message = '';
@@ -78,7 +78,7 @@ function handle_room_search() {
     $end_date = sanitize_text_field($_POST['end-date']);
     $currency = get_currency();
     $amenities = get_predefined_amenities();
-
+    //HERE THE WP_MAIL IS WORKING FINE
     ob_start(); ?>
         <form method="post" id="select-room-form" action="" enctype="multipart/form-data">
             <button id="prev-room" disabled><i class="fa">&#xf0d9;</i></button>
@@ -189,7 +189,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id']) && isset($
     if ($payment_success) {
         save_booking_to_db($room_id, $name, $email, $phone, $adults, $children, $start_date, $end_date, $total_cost, (int)1);
         save_booking_to_calendar($room_id, $adults, $children, $start_date, $end_date, $name, $email);
+        error_log("Attempting to send email to: " . $email);
         send_success_email_to_client($name, $email);
+        error_log("Email sent attempt complete.");
+        //HERE THE WP_MAIL IS NOT WORKING
 
         header('Location: ' . home_url() . '?booking_status=success');
     } else {
@@ -199,23 +202,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room-id']) && isset($
 }
 
 function send_success_email_to_client($name, $email) {
-    if (isset($message_settings['send_email_to_client']) && $message_settings['send_email_to_client']) {
-        $client_name = $name;
-        $client_email =$email;
-    
-        $message_settings = get_option('message_settings');
-        $client_email_subject = $message_settings['client_email_subject'] ?? 'Booking Confirmation';
-        $client_email_content = $message_settings['client_email_content'] ?? 'Thank you for your booking! We will contact you soon.';
-    
-        // Optional: Replace placeholders with actual data
-        // $client_email_content = str_replace('%client_name%', $client_name, $client_email_content);
-        // $client_email_content = str_replace('%booking_details%', get_booking_details_as_text($booking_data), $client_email_content);
-    
-        $headers = array('Content-Type: text/html; charset=UTF-8');
-    
-        wp_mail($client_email, $client_email_subject, $client_email_content, $headers);
+    if (!defined('ABSPATH')) {
+        error_log("WordPress environment is not loaded.");
+        return; // Exit if accessed directly.
     }
+    // Initialize message settings
+    $message_settings = get_option('message_settings');
+    // Check if sending email to clients is enabled
+    if (isset($message_settings['send_email_to_clients'])) {
+        $client_name = $name;
+        $client_email = $email;
+
+        // Get subject and content with fallback
+        $client_email_subject = isset($message_settings['client_email_subject']) 
+            ? strip_tags($message_settings['client_email_subject']) 
+            : 'Booking Confirmation';
+        $client_email_content = isset($message_settings['client_email_content']) 
+            ? $message_settings['client_email_content'] 
+            : 'Thank you for your booking! We will contact you soon.';
+
+        // Log the email subject and content for debugging
+        error_log("Preparing to send email:");
+        error_log("Subject: $client_email_subject");
+        error_log("Content: $client_email_content");
+
+        // Set the headers for HTML email
+        $headers = array('Content-Type: text/html; charset=UTF-8');
+
+        // Log the email sending attempt
+        error_log("Sending email to: $client_email with subject: $client_email_subject");
+
+        // Send the email
+        $email_sent = wp_mail($client_email, $client_email_subject, $client_email_content, $headers);
         
+        // Check if the email was sent successfully
+        if (!$email_sent) {
+            error_log("Email failed to send to: $client_email");
+        } else {
+            error_log("Email successfully sent to: $client_email");
+        }
+    } else {
+        error_log("Sending email to clients is not enabled in message settings.");
+    }
 }
 
 function save_booking_to_db($room_id, $name, $email, $phone, $adults, $children, $start_date, $end_date, $total_cost, $paid = 0) {

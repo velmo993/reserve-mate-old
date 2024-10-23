@@ -10,10 +10,10 @@ Author: velmoweb.com
 defined('ABSPATH') or die('No script please!');
 
 // Include required files
-include_once(plugin_dir_path(__FILE__) . 'includes/admin-settings.php');
-include_once(plugin_dir_path(__FILE__) . 'includes/booking-form.php');
-include_once(plugin_dir_path(__FILE__) . 'includes/google-calendar.php');
-include_once(plugin_dir_path(__FILE__) . 'includes/payments.php');
+include_once(plugin_dir_path(__FILE__) . 'includes/admin/admin-settings.php');
+include_once(plugin_dir_path(__FILE__) . 'includes/frontend/booking-form.php');
+include_once(plugin_dir_path(__FILE__) . 'includes/integrations/google-calendar.php');
+include_once(plugin_dir_path(__FILE__) . 'includes/payments/payments.php');
 
 // Register custom post types
 function create_booking_post_type() {
@@ -306,7 +306,7 @@ function create_bookings_table() {
 function enqueue_admin_styles() {
     wp_enqueue_style(
         'booking-plugin-styles',
-        plugin_dir_url(__FILE__) . 'includes/css/style.css',
+        plugin_dir_url(__FILE__) . 'assets/css/style.css',
         array(),
         '1.0.0'
     );
@@ -315,7 +315,7 @@ function enqueue_admin_styles() {
 function enqueue_admin_scripts() {
     wp_enqueue_script(
         'booking-plugin-scripts',
-        plugin_dir_url(__FILE__) . 'includes/js/admin/admin.js',
+        plugin_dir_url(__FILE__) . 'assets/js/admin.js',
         array('jquery'),
         '1.0.0',
         true
@@ -364,14 +364,27 @@ function enqueue_custom_date_picker_assets() {
     wp_enqueue_script('flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr', array('jquery'), null, true);
 }
 
-function enqueue_booking_form_scripts() {
+function enqueue_frontend_scripts() {
     wp_enqueue_script(
-        'booking-form-scripts',
-        plugin_dir_url(__FILE__) . 'includes/js/frontend/script.js',
+        'frontend-scripts',
+        plugin_dir_url(__FILE__) . 'assets/js/frontend.js',
         array('jquery'),
         '1.0.0',
         true
     );
+
+    $p_settings = get_option('payment_settings');
+    $payment_settings = [
+        'stripe_enabled' => isset($p_settings['stripe_enabled']) ? $p_settings['stripe_enabled'] : '0',
+        'paypal_enabled' => isset($p_settings['paypal_enabled']) ? $p_settings['paypal_enabled'] : '0',
+    ];
+
+    wp_localize_script('frontend-scripts', 'paymentSettings', $payment_settings);
+
+    wp_localize_script('frontend-scripts', 'ajaxScript', array(
+        'ajaxurl' => admin_url('admin-ajax.php'),
+        'nonce'   => wp_create_nonce('load_room_nonce')
+    ));
 }
 
 // Deregister Elementor's Font Awesome Styles
@@ -623,18 +636,9 @@ function get_filter_data() {
     ]);
 }
 
-function enqueue_ajax_scripts() {
-    wp_enqueue_script('frontend-ajax-script', get_template_directory_uri() . '/js/frontend/script.js', array('jquery'));
-    
-    wp_localize_script('frontend-ajax-script', 'ajaxScript', array(
-        'ajaxurl' => admin_url('admin-ajax.php'),
-        'nonce'   => wp_create_nonce('load_room_nonce')
-    ));
-}
-
 function enqueue_stripe_scripts() {
     wp_enqueue_script('stripe-js', 'https://js.stripe.com/v3/', [], null, true);
-    wp_enqueue_script('stripe-payment', plugin_dir_url(__FILE__) . 'includes/js/stripe/stripe-payment.js', ['stripe-js'], null, true);
+    wp_enqueue_script('stripe-payment', plugin_dir_url(__FILE__) . 'assets/js/stripe-payment.js', ['stripe-js'], null, true);
     
     $stripe_public_key = get_option('payment_settings')['stripe_public_key'];
     wp_localize_script('stripe-payment', 'stripe_vars', [
@@ -646,39 +650,13 @@ function enqueue_stripe_scripts() {
 function enqueue_paypal_scripts() {
     $paypal_client_id = get_option('payment_settings')['paypal_client_id'];
     wp_enqueue_script('paypal-js', 'https://www.paypal.com/sdk/js?client-id=' . $paypal_client_id . '&disable-funding=card', [], null, true);
-    wp_enqueue_script('paypal-payment', plugin_dir_url(__FILE__) . 'includes/js/paypal/paypal-payment.js', ['paypal-js'], null, true);
+    wp_enqueue_script('paypal-payment', plugin_dir_url(__FILE__) . 'assets/js/paypal-payment.js', ['paypal-js'], null, true);
     
     $paypal_client_id = get_option('payment_settings')['paypal_client_id'];
     wp_localize_script('paypal-payment', 'paypal_vars', [
         'paypalClientId' => $paypal_client_id,
         'pluginDir' => plugin_dir_url(__FILE__)
     ]);
-}
-
-// function enqueue_apple_pay_scripts() {
-//     wp_enqueue_script('apple-pay-sdk', 'https://applepay.cdn-apple.com/jsapi/v1/apple-pay-sdk.js', [], null, true);
-//     wp_enqueue_script('apple-pay-payment', plugin_dir_url(__FILE__) . 'includes/js/apple-pay/apple-pay-payment.js', ['apple-pay-sdk'], null, true);
-
-//     $apple_pay_merchant_id = get_option('payment_settings')['apple_pay_merchant_id'];
-
-//     wp_localize_script('apple-pay-payment', 'apple_pay_vars', [
-//         'merchantId' => $apple_pay_merchant_id,
-//         'pluginDir' => plugin_dir_url(__FILE__)
-//     ]);
-// }
-
-function enqueue_payment_scripts() {
-    wp_enqueue_script('script', plugin_dir_url(__FILE__) . 'includes/js/frontend/script.js', [], null, true);
-    
-    $p_settings = get_option('payment_settings');
-
-    $payment_settings = [
-        'stripe_enabled' => isset($p_settings['stripe_enabled']) ? $p_settings['stripe_enabled'] : '0',
-        'paypal_enabled' => isset($p_settings['paypal_enabled']) ? $p_settings['paypal_enabled'] : '0',
-        // 'apple_pay_enabled' => isset($p_settings['apple_pay_enabled']) ? $p_settings['apple_pay_enabled'] : '0',
-    ];
-    
-    wp_localize_script('script', 'paymentSettings', $payment_settings);
 }
 
 function booking_auto_cleanup() {
@@ -708,17 +686,15 @@ function delete_unpaid_bookings() {
     }
 }
 
-
 add_action('wp_ajax_get_filter_data', 'get_filter_data');
 add_action('wp_ajax_nopriv_get_filter_data', 'get_filter_data');
-add_action('wp_enqueue_scripts', 'enqueue_ajax_scripts');
 add_action('wp_ajax_load_room', 'load_room_callback');
 add_action('wp_ajax_nopriv_load_room', 'load_room_callback');
 add_action('init', 'create_booking_post_type');
 add_action('admin_enqueue_scripts', 'enqueue_admin_styles');
 add_action('admin_enqueue_scripts', 'enqueue_admin_scripts');
 add_action('wp_enqueue_scripts', 'enqueue_custom_date_picker_assets');
-add_action('wp_enqueue_scripts', 'enqueue_booking_form_scripts');
+add_action('wp_enqueue_scripts', 'enqueue_frontend_scripts');
 add_action('wp_ajax_get_room_images', 'ajax_get_room_images');
 add_action('wp_ajax_delete_room_image', 'ajax_delete_room_image');
 add_action('wp_ajax_fetch_amenities', 'ajax_fetch_amenities');
@@ -728,8 +704,6 @@ add_action('wp', 'booking_auto_cleanup');
 add_action('wp_footer', 'initialize_date_picker');
 add_action('wp_enqueue_scripts', 'enqueue_stripe_scripts');
 add_action('wp_enqueue_scripts', 'enqueue_paypal_scripts');
-// add_action('wp_enqueue_scripts', 'enqueue_apple_pay_scripts');
-add_action('wp_enqueue_scripts', 'enqueue_payment_scripts');
 
 register_activation_hook(__FILE__, 'create_amenities_table');
 register_activation_hook(__FILE__, 'create_rooms_table');

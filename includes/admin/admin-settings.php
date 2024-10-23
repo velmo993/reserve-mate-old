@@ -422,7 +422,7 @@ function sanitize_message_settings($input) {
         $sanitized['client_email_subject'] = sanitize_text_field($input['client_email_subject']);
     }
     
-    $sanitized['send_email_to_client'] = isset($input['send_email_to_client']) ? 1 : 0;
+    $sanitized['send_email_to_clients'] = isset($input['send_email_to_clients']) ? 1 : 0;
 
     return $sanitized;
 }

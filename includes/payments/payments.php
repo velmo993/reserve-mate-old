@@ -1,7 +1,7 @@
 <?php
 defined('ABSPATH') or die('No script please!');
 
-require_once plugin_dir_path(__FILE__) . 'stripe/init.php';
+require_once plugin_dir_path(__FILE__) . '../api/stripe/init.php';
 
 use Stripe\Stripe;
 use Stripe\Charge;

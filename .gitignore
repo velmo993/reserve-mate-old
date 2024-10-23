@@ -1,3 +1,2 @@
-/includes/google-api-client/*
-/includes/credentials.json
-/includes/stripe/*
+/includes/api/*
+/includes/integrations/credentials.json
